@@ -1,0 +1,662 @@
+package pandoc
+
+import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/pborman/uuid"
+	"yokitalk.com/docservice/server/config"
+)
+
+type Metadata map[string][]string
+type Variable map[string]string
+type RequestHeader map[string]string
+
+type ConvertOptions struct {
+	From                  string        `json:"from"`
+	To                    string        `json:"to"`
+	DataDir               string        `json:"data_dir"`
+	BaseHeaderLevel       int           `json:"base_header_level"`
+	StripEmptyParagraphs  bool          `json:"strip_empty_paragraphs"`
+	IndentedCodeClasses   string        `json:"indented_code_classes"`
+	Filter                string        `json:"filter"`
+	LuaFilter             string        `json:"lua_filter"`
+	PreserveTabs          bool          `json:"preserve_tabs"`
+	TabStop               int           `json:"tab_stop"`
+	TrackChanges          string        `json:"track_changes"` // accept|reject|all
+	FileScope             bool          `json:"file_scope"`
+	ExtractMedia          string        `json:"extract_media"`
+	Standalone            bool          `json:"standalone"`
+	Template              string        `json:"template"`
+	Metadata              Metadata      `json:"metadata"`
+	MetadataFile          string        `json:"metadata_file"`
+	Variable              Variable      `json:"variable"`
+	PrintDefaultTemplate  string        `json:"print_default_template"`
+	PrintDefaultDataFile  string        `json:"print_default_data_file"`
+	PrintHighlightStyle   string        `json:"print_highlight_style"`
+	DPI                   int           `json:"dpi"`
+	EOL                   string        `json:"eol"`  // crlf|lf|native
+	Wrap                  string        `json:"wrap"` // auto|none|preserve
+	Columns               int           `json:"columns"`
+	StripComments         bool          `json:"strip_comments"`
+	TOC                   bool          `json:"toc"`
+	TOCDepth              int           `json:"toc_depth"`
+	NoHighlight           bool          `json:"no_highlight"`
+	HighlightStyle        string        `json:"highlight_style"`
+	SyntaxDefinition      string        `json:"syntax_definition"`
+	IncludeInHeader       string        `json:"include_in_header"`
+	IncludeBeforeBody     string        `json:"include_before_body"`
+	IncludeAfterBody      string        `json:"include_after_body"`
+	ResourcePath          string        `json:"resource_path"`
+	RequestHeader         RequestHeader `json:"request_header"`
+	SelfContained         bool          `json:"self_contained"`
+	HtmlQTags             bool          `json:"html_q_tags"`
+	Ascii                 bool          `json:"ascii"`
+	ReferenceLinks        bool          `json:"reference_links"`
+	ReferenceLocation     string        `json:"reference_location"` // block|section|document
+	AtxHeaders            bool          `json:"atx_headers"`
+	TopLevelDivision      string        `json:"top_level_division"` // section|chapter|part
+	NumberSections        bool          `json:"number_sections"`
+	NumberOffset          int           `json:"number_offset"`
+	Listings              bool          `json:"listings"`
+	Incremental           bool          `json:"incremental"`
+	SlideLevel            int           `json:"slide_level"`
+	SectionDivs           bool          `json:"section_divs"`
+	DefaultImageExtension string        `json:"default_image_extension"`
+	EmailObfuscation      string        `json:"email_obfuscation"` // none|javascript|references
+	IdPrefix              string        `json:"id_prefix"`
+	TitlePrefix           string        `json:"title_prefix"`
+	CSS                   string        `json:"css"`
+	ReferenceDoc          string        `json:"reference_doc"`
+	EpubSubdirectory      string        `json:"epub_subdirectory"`
+	EpubCoverImage        string        `json:"epub_cover_image"`
+	EpubMetadata          string        `json:"epub_metadata"`
+	EpubEmbedFont         string        `json:"epub_embed_font"`
+	EpubChapterLevel      int           `json:"epub_chapter_level"`
+	PDFEngine             string        `json:"pdf_engine"`
+	PDFEngineOpt          string        `json:"pdf_engine_opt"`
+	Bibliography          string        `json:"bibliography"`
+	CSL                   string        `json:"csl"`
+	CitationAbbreviations string        `json:"citation_abbreviations"`
+	Natbib                bool          `json:"natbib"`
+	Biblatex              bool          `json:"biblatex"`
+	Mathml                bool          `json:"mathml"`
+	Webtex                string        `json:"webtex"`
+	Mathjax               string        `json:"mathjax"`
+	Katex                 string        `json:"katex"`
+	Latexmathml           string        `json:"latexmathml"`
+	Mimetex               string        `json:"mimetex"`
+	Jsmath                string        `json:"jsmath"`
+	Gladtex               bool          `json:"gladtex"`
+	Abbreviations         string        `json:"abbreviations"`
+	FailIfWarnings        bool          `json:"fail_if_warnings"`
+
+	verbose    bool
+	trace      bool
+	dumpArgs   bool
+	ignoreArgs bool
+}
+
+func toCommandFileArgs(k, url, safeDir string) (args []string, cleanup func(), err error) {
+	f := File{Url: url, TempDirPrefix: "go-pandoc", SafeDir: safeDir}
+
+	var tmpFilename string
+	tmpFilename, err = f.Path()
+	if err != nil {
+		return
+	}
+
+	cleanup = f.Cleanup
+	args = []string{k, tmpFilename}
+
+	return
+}
+
+func (p *ConvertOptions) toCommandArgs(safeDir string) (ret []string, cleanups []func(), err error) {
+	var args []string
+
+	var cleanupFuncs []func()
+
+	defer func() {
+		if err != nil {
+			for i := 0; i < len(cleanupFuncs); i++ {
+				cleanupFuncs[i]()
+			}
+		}
+	}()
+
+	if p.StripEmptyParagraphs {
+		args = append(args, "--strip-empty-paragraphs")
+	}
+
+	if p.PreserveTabs {
+		args = append(args, "--preserve-tabs")
+	}
+
+	if p.FileScope {
+		args = append(args, "--file-scope")
+	}
+
+	if p.Standalone {
+		args = append(args, "--standalone")
+	}
+
+	if p.StripComments {
+		args = append(args, "--strip-comments")
+	}
+
+	if p.TOC {
+		args = append(args, "--toc")
+	}
+
+	if p.NoHighlight {
+		args = append(args, "--no-highlight")
+	}
+
+	if p.SelfContained {
+		args = append(args, "--self-contained")
+	}
+
+	if p.HtmlQTags {
+		args = append(args, "--html-q-tags")
+	}
+
+	if p.Ascii {
+		args = append(args, "--ascii")
+	}
+
+	if p.ReferenceLinks {
+		args = append(args, "--reference-links")
+	}
+
+	if p.AtxHeaders {
+		args = append(args, "--atx-headers")
+	}
+
+	if p.NumberSections {
+		args = append(args, "--number-sections")
+	}
+
+	if p.Listings {
+		args = append(args, "--listings")
+	}
+
+	if p.Incremental {
+		args = append(args, "--incremental")
+	}
+
+	if p.SectionDivs {
+		args = append(args, "--section-divs")
+	}
+
+	if p.Natbib {
+		args = append(args, "--natbib")
+	}
+
+	if p.Biblatex {
+		args = append(args, "--biblatex")
+	}
+
+	if p.Mathml {
+		args = append(args, "--mathml")
+	}
+
+	if p.Gladtex {
+		args = append(args, "--gladtex")
+	}
+
+	if p.FailIfWarnings {
+		args = append(args, "--fail-if-warnings")
+	}
+
+	for k, v := range p.Variable {
+		args = append(args, "--variable", strings.Join([]string{k, v}, "="))
+	}
+
+	for k, values := range p.Metadata {
+		for i := 0; i < len(values); i++ {
+			args = append(args, "--metadata", strings.Join([]string{k, values[i]}, "="))
+		}
+	}
+
+	if len(p.MetadataFile) > 0 {
+		fileArgs, fn, e := toCommandFileArgs("--metadata-file", p.MetadataFile, safeDir)
+		if e != nil {
+			return
+		}
+		if len(args[1]) > 0 {
+			args = append(args, fileArgs...)
+			cleanupFuncs = append(cleanupFuncs, fn)
+		}
+	}
+
+	for k, v := range p.RequestHeader {
+		args = append(args, "--request-header", strings.Join([]string{k, v}, "="))
+	}
+
+	if p.PDFEngine == "" {
+		p.PDFEngine = "xelatex"
+	}
+
+	if len(p.From) != 0 {
+		args = append(args, "--from", p.From)
+	}
+
+	if len(p.To) != 0 && strings.ToUpper(p.To) != "PDF" {
+		args = append(args, "--to", p.To)
+	}
+
+	if len(p.DataDir) != 0 {
+		args = append(args, "--data-dir", p.DataDir)
+	}
+
+	if p.BaseHeaderLevel != 0 {
+		args = append(args, "--base-header-level", strconv.Itoa(p.BaseHeaderLevel))
+	}
+
+	if len(p.IndentedCodeClasses) != 0 {
+		args = append(args, "--indented-code-classes", p.IndentedCodeClasses)
+	}
+
+	if p.TabStop != 0 {
+		args = append(args, "--tab-stop", strconv.Itoa(p.TabStop))
+	}
+
+	if len(p.TrackChanges) != 0 {
+		args = append(args, "--track-changes", p.TrackChanges)
+	}
+
+	if len(p.ExtractMedia) != 0 {
+		args = append(args, "--extract-media", p.ExtractMedia)
+	}
+
+	if len(p.Template) > 0 {
+		fileArgs, fn, e := toCommandFileArgs("--template", p.Template, safeDir)
+		if e != nil {
+			return
+		}
+		if len(args[1]) > 0 {
+			args = append(args, fileArgs...)
+			cleanupFuncs = append(cleanupFuncs, fn)
+		}
+	}
+
+	if len(p.PrintDefaultTemplate) != 0 {
+		args = append(args, "--print-default-template", p.PrintDefaultTemplate)
+	}
+
+	if len(p.PrintDefaultDataFile) != 0 {
+		args = append(args, "--print-default-data-file", p.PrintDefaultDataFile)
+	}
+
+	if len(p.PrintHighlightStyle) != 0 {
+		args = append(args, "--print-highlight-style", p.PrintHighlightStyle)
+	}
+
+	if p.DPI != 0 {
+		args = append(args, "--dpi", strconv.Itoa(p.DPI))
+	}
+
+	if len(p.EOL) != 0 {
+		args = append(args, "--eol", p.EOL)
+	}
+
+	if len(p.Wrap) != 0 {
+		args = append(args, "--wrap", p.Wrap)
+	}
+
+	if p.Columns != 0 {
+		args = append(args, "--columns", strconv.Itoa(p.Columns))
+	}
+
+	if p.TOCDepth != 0 {
+		args = append(args, "--toc-depth", strconv.Itoa(p.TOCDepth))
+	}
+
+	if len(p.HighlightStyle) != 0 {
+		args = append(args, "--highlight-style", p.HighlightStyle)
+	}
+
+	if len(p.SyntaxDefinition) > 0 {
+		fileArgs, fn, e := toCommandFileArgs("--syntax-definition", p.SyntaxDefinition, safeDir)
+		if e != nil {
+			return
+		}
+		if len(args[1]) > 0 {
+			args = append(args, fileArgs...)
+			cleanupFuncs = append(cleanupFuncs, fn)
+		}
+	}
+
+	if len(p.IncludeInHeader) > 0 {
+		fileArgs, fn, e := toCommandFileArgs("--include-in-header", p.IncludeInHeader, safeDir)
+		if e != nil {
+			return
+		}
+		if len(args[1]) > 0 {
+			args = append(args, fileArgs...)
+			cleanupFuncs = append(cleanupFuncs, fn)
+		}
+	}
+
+	if len(p.IncludeBeforeBody) > 0 {
+		fileArgs, fn, e := toCommandFileArgs("--include-before-body", p.IncludeBeforeBody, safeDir)
+		if e != nil {
+			return
+		}
+		if len(args[1]) > 0 {
+			args = append(args, fileArgs...)
+			cleanupFuncs = append(cleanupFuncs, fn)
+		}
+	}
+
+	if len(p.IncludeAfterBody) > 0 {
+		fileArgs, fn, e := toCommandFileArgs("--include-after-body", p.IncludeAfterBody, safeDir)
+		if e != nil {
+			return
+		}
+		if len(args[1]) > 0 {
+			args = append(args, fileArgs...)
+			cleanupFuncs = append(cleanupFuncs, fn)
+		}
+	}
+
+	if len(p.ResourcePath) != 0 {
+		args = append(args, "--resource-path", p.ResourcePath)
+	}
+
+	if len(p.ReferenceLocation) != 0 {
+		args = append(args, "--reference-location", p.ReferenceLocation)
+	}
+
+	if len(p.TopLevelDivision) != 0 {
+		args = append(args, "--top-level-division", p.TopLevelDivision)
+	}
+
+	if p.NumberOffset != 0 {
+		args = append(args, "--number-offset", strconv.Itoa(p.NumberOffset))
+	}
+
+	if p.SlideLevel != 0 {
+		args = append(args, "--slide-level", strconv.Itoa(p.SlideLevel))
+	}
+
+	if len(p.DefaultImageExtension) != 0 {
+		args = append(args, "--default-image-extension", p.DefaultImageExtension)
+	}
+
+	if len(p.EmailObfuscation) != 0 {
+		args = append(args, "--email-obfuscation", p.EmailObfuscation)
+	}
+
+	if len(p.IdPrefix) != 0 {
+		args = append(args, "--id-prefix", p.IdPrefix)
+	}
+
+	if len(p.TitlePrefix) != 0 {
+		args = append(args, "--title-prefix", p.TitlePrefix)
+	}
+
+	if len(p.CSS) != 0 {
+		args = append(args, "--css", p.CSS)
+	}
+
+	if len(p.ReferenceDoc) > 0 {
+		f := File{Url: p.ReferenceDoc, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--reference-doc", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
+	}
+
+	if len(p.EpubSubdirectory) != 0 {
+		args = append(args, "--epub-subdirectory", p.EpubSubdirectory)
+	}
+
+	if len(p.EpubCoverImage) > 0 {
+		f := File{Url: p.EpubCoverImage, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--epub-cover-image", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
+	}
+
+	if len(p.EpubMetadata) > 0 {
+		f := File{Url: p.EpubMetadata, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--epub-metadata", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
+	}
+
+	if len(p.EpubEmbedFont) > 0 {
+		f := File{Url: p.EpubEmbedFont, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--epub-embed-font", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
+	}
+
+	if p.EpubChapterLevel != 0 {
+		args = append(args, "--epub-chapter-level", strconv.Itoa(p.EpubChapterLevel))
+	}
+
+	if len(p.PDFEngine) != 0 {
+		args = append(args, "--pdf-engine", p.PDFEngine)
+	}
+
+	if len(p.PDFEngineOpt) != 0 {
+		args = append(args, "--pdf-engine-opt", p.PDFEngineOpt)
+	}
+
+	if len(p.Bibliography) > 0 {
+		f := File{Url: p.Bibliography, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--bibliography", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
+	}
+
+	if len(p.CSL) > 0 {
+		f := File{Url: p.CSL, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--csl", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
+	}
+
+	if len(p.CitationAbbreviations) > 0 {
+		f := File{Url: p.CitationAbbreviations, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--citation-abbreviations", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
+	}
+
+	if len(p.Webtex) != 0 {
+		args = append(args, "--webtex", p.Webtex)
+	}
+
+	if len(p.Mathjax) != 0 {
+		args = append(args, "--mathjax", p.Mathjax)
+	}
+
+	if len(p.Katex) != 0 {
+		args = append(args, "--katex", p.Katex)
+	}
+
+	if len(p.Latexmathml) != 0 {
+		args = append(args, "--latexmathml", p.Latexmathml)
+	}
+
+	if len(p.Mimetex) != 0 {
+		args = append(args, "--mimetex", p.Mimetex)
+	}
+
+	if len(p.Jsmath) != 0 {
+		args = append(args, "--jsmath", p.Jsmath)
+	}
+
+	if len(p.Abbreviations) > 0 {
+		f := File{Url: p.Abbreviations, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--abbreviations", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
+	}
+
+	if p.verbose {
+		args = append(args, "--verbose")
+	}
+
+	if p.dumpArgs {
+		args = append(args, "--dump-args")
+	}
+
+	if p.ignoreArgs {
+		args = append(args, "--ignore-args")
+	}
+
+	if p.trace {
+		args = append(args, "--trace")
+	}
+
+	return args, cleanupFuncs, nil
+}
+
+type Pandoc struct {
+	timeout  time.Duration
+
+	verbose    bool
+	trace      bool
+	dumpArgs   bool
+	ignoreArgs bool
+
+	safeDir string
+}
+
+func New() (pandoc *Pandoc, err error) {
+
+	pdoc := &Pandoc{}
+
+	if err := config.Init(""); err != nil {
+		panic(err)
+	}
+	conf := config.Config{}
+
+	commandTimeout := conf.GetTimeDuration("pandoc.timeout", time.Second*300)
+
+	pdoc.timeout = commandTimeout
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+
+	pdoc.verbose = conf.GetBoolean("pandoc.verbose")
+	pdoc.trace = conf.GetBoolean("pandoc.trace")
+	pdoc.dumpArgs = conf.GetBoolean("pandoc.dump-args")
+	pdoc.ignoreArgs = conf.GetBoolean("pandoc.ignore-args")
+	pdoc.safeDir = conf.GetString("pandoc.safe-dir", cwd)
+
+	pandoc = pdoc
+
+	return
+}
+
+func (p *Pandoc) Convert(convertOpts ConvertOptions) (ret []byte, err error) {
+
+	var data []byte
+
+	if len(convertOpts.DataDir) > 0 && !filepath.HasPrefix(convertOpts.DataDir, p.safeDir) {
+		err = fmt.Errorf("DataDir: '%s' is not in safe dir: '%s'", convertOpts.DataDir, p.safeDir)
+		return
+	}
+
+	tmpDir, err := ioutil.TempDir("", "go-pandoc")
+	if err != nil {
+		return
+	}
+
+	tmpInput := filepath.Join(tmpDir, uuid.New()) + "." + convertOpts.From
+	tmpOutpout := filepath.Join(tmpDir, uuid.New()) + "." + convertOpts.To
+
+	err = ioutil.WriteFile(tmpInput, data, 0644)
+	if err != nil {
+		return
+	}
+
+	defer os.Remove(tmpInput)
+
+	convertOpts.verbose = p.verbose
+	convertOpts.trace = p.trace
+	convertOpts.dumpArgs = p.dumpArgs
+	convertOpts.ignoreArgs = p.ignoreArgs
+
+	args, cleanupFuncs, err := convertOpts.toCommandArgs(p.safeDir)
+	if err != nil {
+		return
+	}
+
+	if len(cleanupFuncs) > 0 {
+		defer func() {
+			for i := 0; i < len(cleanupFuncs); i++ {
+				cleanupFuncs[i]()
+			}
+		}()
+	}
+
+	args = append(args, []string{"--quiet", tmpInput, "--output", tmpOutpout}...)
+
+	_, err = execCommand(p.timeout, "pandoc", args...)
+
+	if err != nil {
+		return
+	}
+
+	defer os.Remove(tmpOutpout)
+
+	var result []byte
+	result, err = ioutil.ReadFile(tmpOutpout)
+
+	ret = result
+
+	return
+}
