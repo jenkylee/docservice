@@ -119,11 +119,7 @@ func uploadFileHandler() http.HandlerFunc {
 			return
 		}
 		fileName := randToken(12)
-		// fileEndings, err := mime.ExtensionsByType(fileExt)
-		/*if err != nil {
-			renderError(w, "CANT_READ_FILE_TYPE", http.StatusInternalServerError)
-			return
-		}*/
+
 		newPath := filepath.Join(uploadPath, fileName+fileExt)
 		fmt.Printf("FileType: %s, File: %s\n", fileExt, newPath)
 
