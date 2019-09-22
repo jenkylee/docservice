@@ -1,20 +1,23 @@
 package main
 
 import (
-	"log"
+	"fmt"
 
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/mysql"
-	"yokitalk.com/docservice/server/model"
+	"yokitalk.com/docservice/server/dbinstance"
+	"yokitalk.com/docservice/server/repository"
 )
 
 func main() {
-	db, err := gorm.Open("mysql", "root:123qwe@tcp(127.0.0.1:3306)/test?charset=utf8&parseTime=True&loc=Local")
-	defer db.Close()
+	mysqlManager := dbinstance.GetMysqlInstance()
 
-	db.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&model.User{}, &model.Language{}, &model.Address{}, &model.CreditCard{}, &model.Email{})
+	defer mysqlManager.Destroy()
 
-	if err != nil {
-		log.Fatal("fail")
-	}
+	db := mysqlManager.DB
+
+	userDBRepository := repository.NewUserRepository(db)
+
+	user, err := userDBRepository.Find(6)
+
+	fmt.Println(user)
+	fmt.Println(err)
 }
