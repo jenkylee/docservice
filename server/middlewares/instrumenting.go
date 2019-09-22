@@ -3,9 +3,10 @@ package middlewares
 import (
 	"fmt"
 	"time"
-	"yokitalk.com/docservice/server/service"
 
 	"github.com/go-kit/kit/metrics"
+
+	"yokitalk.com/docservice/server/service"
 )
 
 type InstrumentingMiddleware struct {
