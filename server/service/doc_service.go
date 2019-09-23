@@ -33,19 +33,18 @@ func init()  {
 	testingType["questionanswer"] = "{[}问答题{]}"
 }
 
-
-type DocService struct {
+type docService struct {
 	db   *gorm.DB
 }
 
 func NewDocService(db *gorm.DB) Service {
-	service := DocService{}
+	service := docService{}
 	service.db = db
 
 	return service
 }
 
-func (doc DocService) Import (s string) (string, error){
+func (doc docService) Import (s string) (string, error){
 	if s == "" {
 		return "", ErrEmpty
 	}
@@ -78,7 +77,7 @@ func (doc DocService) Import (s string) (string, error){
 	return "ok", nil
 }
 
-func (DocService) Export(s string) int {
+func (docService) Export(s string) int {
 	return len(s)
 }
 
