@@ -11,8 +11,6 @@ import (
 	pool2 "yokitalk.com/docservice/server/pool"
 )
 
-
-
 func  main() {
 	pool, err := pool2.NewCommonPool(10, 100, time.Second*300, poolMysqlFactory)
 	if err != nil {

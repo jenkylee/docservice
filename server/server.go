@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"yokitalk.com/docservice/server/dbinstance"
 
 	"github.com/go-kit/kit/log"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
@@ -45,10 +46,18 @@ func main() {
 		Help:        "The reuslt of each count method",
 	}, []string{})
 
+	mysqlManager := dbinstance.GetMysqlInstance()
+
+	defer mysqlManager.Destroy()
+
+	db := mysqlManager.DB
+
 	var ds service.Service
-	ds = service.DocService{}
+	ds = service.NewDocService(db)
+
 	ds = middlewares.LoggingMiddleware{logger, ds}
 	ds = middlewares.InstrumentingMiddleware{requestCount, requestLatency, countResult, ds}
+
 
 	importHandler := httptransport.NewServer(
 		service.MakeImportEndpoint(ds),

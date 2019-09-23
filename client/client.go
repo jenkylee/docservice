@@ -9,9 +9,10 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"regexp"
 )
 
-const filePath  = "./cache/"
+const filePath = "./cache/"
 
 func main() {
 	bodyBuffer := &bytes.Buffer{}
@@ -34,4 +35,13 @@ func main() {
 
 	log.Println(resp.Status)
 	log.Println(string(resp_body))
+
+	match, v := regexp.MatchString("[0-9]", "5 ~")
+	fmt.Println(match, v)
+
+	reg := regexp.MustCompile(`([0-9])`)
+
+	result := reg.FindAllStringSubmatch("5 ~",-1) //匹配
+	fmt.Println(result[0][1])
+
 }

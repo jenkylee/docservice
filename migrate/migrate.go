@@ -15,12 +15,12 @@ func main() {
 	if err != nil {
 		log.Fatal("数据库连接失败")
 	}
-	if db.HasTable(&model.User{}) { // 检查模型`User` 表是否存在
-		log.Println("模型`User` 表已存在")
+	if db.HasTable(&model.Question{}) { // 检查模型`User` 表是否存在
+		log.Println("模型`Question` 表已存在")
 	} else {
 		// 为模型`User` 创建表
-		db.CreateTable(&model.User{})
-		log.Println("模型`User` 表创建成功")
+		db.Set("gorm:table_options", "ENGINE=InnoDB").CreateTable(&model.Question{})
+		log.Println("模型`Question` 表创建成功")
 		// db.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&model.User{}, &model.Language{}, &model.Address{}, &model.CreditCard{}, &model.Email{})
 	}
 }
