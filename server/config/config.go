@@ -23,7 +23,7 @@ func Init(cfg string) error {
 	c := Config{
 		Name: cfg,
 	}
-	
+
 	// 初始化配置文件
 	if err := c.initConfig(); err != nil{
 		return err
@@ -87,6 +87,11 @@ func (c *Config) GetTimeDuration(key string, defaultVal ...time.Duration) time.D
 		return 0
 	}
 	return v * time.Second
+}
+
+func (c *Config) GetStringMapString(key string) map[string]string {
+
+	return viper.GetStringMapString(key)
 }
 
 

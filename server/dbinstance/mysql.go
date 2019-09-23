@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"yokitalk.com/docservice/server/config"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
@@ -28,7 +29,16 @@ type MysqlManager struct {
 }
 
 func (this *MysqlManager) init() (*gorm.DB, error) {
-	this.DB, this.ErrorMsg = gorm.Open("mysql", "root:123qwe@tcp(127.0.0.1:3306)/test?charset=utf8&parseTime=True&loc=Local")
+
+	if err := config.Init(""); err != nil {
+		panic(err)
+	}
+	conf := config.Config{}
+
+	dbConf := conf.GetStringMapString("common.db")
+	dbConn := dbConf["username"] + ":" + dbConf["password"] + "@tcp(" + dbConf["addr"] + ":" + dbConf["port"] + ")/" + dbConf["name"] + "?charset=utf8&parseTime=True&loc=Local"
+
+	this.DB, this.ErrorMsg = gorm.Open(dbConf["driver"], dbConn)
 
 	fmt.Println(this.ErrorMsg)
 
