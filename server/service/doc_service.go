@@ -3,6 +3,7 @@ package service
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"github.com/jinzhu/gorm"
 	"io"
 	"log"
@@ -94,8 +95,8 @@ func (doc docService) osIoutil(name string, db *gorm.DB) {
 		}
 
 		rd := bufio.NewReader(fileObj)
-		var testingMap map[int]string
-		testingMap = make(map[int]string)
+		var questionMap map[int]string
+		questionMap = make(map[int]string)
 		isTestStart := false
 		isTestEnd := false
 		i := 0
@@ -107,7 +108,7 @@ func (doc docService) osIoutil(name string, db *gorm.DB) {
 			if err != nil || io.EOF == err {
 				isTestStart = false
 				isTestEnd = true
-				doc.testingParse(testingMap, tType, db)
+				doc.questionParse(questionMap, tType, db)
 				break
 			} else {
 				for k, v := range testingType {
@@ -126,15 +127,15 @@ func (doc docService) osIoutil(name string, db *gorm.DB) {
 				}
 
 				if isTestEnd {
-					doc.testingParse(testingMap, oType, db)
+					doc.questionParse(questionMap, oType, db)
 					oType = tType
 					isTestEnd = false
-					testingMap = make(map[int]string)
+					questionMap = make(map[int]string)
 					t_l = 0
 				}
 
 				if isTestStart {
-					testingMap[t_l] = line
+					questionMap[t_l] = line
 					t_l++
 				}
 			}
@@ -142,7 +143,7 @@ func (doc docService) osIoutil(name string, db *gorm.DB) {
 	}
 }
 
-func (docService) testingParse(tMap map[int]string, tType string, db *gorm.DB) error {
+func (docService) questionParse(tMap map[int]string, tType string, db *gorm.DB) error {
 
 	question := model.Question{}
 	question.Type = tType
@@ -162,9 +163,10 @@ func (docService) testingParse(tMap map[int]string, tType string, db *gorm.DB) e
 	for _, key := range keys  {
 		lineStr := strings.Replace(tMap[key], "\n", "<br />", 1)
 
-		if strings.Index(lineStr, tType) > -1 {
+		if idx := strings.Index(lineStr, tType); idx > -1 {
 			isContent = true
-			question.Content = strings.Replace(lineStr, tType, "", 1)
+			question.Content = lineStr[idx + len(tType): len(lineStr) -1]
+			fmt.Println("Content", question.Content)
 			continue
 		}
 

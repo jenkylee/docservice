@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"crypto/md5"
 	"encoding/hex"
-	"fmt"
 	"github.com/jinzhu/gorm"
 	"io"
 	"os"
@@ -12,8 +11,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
-	"yokitalk.com/docservice/server/dbinstance"
 	"yokitalk.com/docservice/server/model"
 	"yokitalk.com/docservice/server/repository"
 )
@@ -33,33 +30,39 @@ func init()  {
 }
 
 func main() {
-	cwd, err := os.Getwd()
+	/*cwd, err := os.Getwd()
 	if err != nil {
 		return
 	}
 	//fmt.Println("cwd", cwd)
 	dir := cwd + "/cache/"
-	sFile := dir + "test.docx"
-	tFile := dir + "test.tex"
+	s := "test.docx"
+	fileExt := strings.ToLower(path.Ext(s))
+
+	sFile := dir + "upload/" + s
+	tFile := dir + "tex/" + strings.Replace(s, fileExt, ".tex", 1)
+	imageDir := dir + "tex/image"
 
 	if !isTexFileExist(sFile) {
 		panic("文件不存在")
 	}
 
 	if !isTexFileExist(tFile) {
-		_, err = execCommand(time.Second * 300, "pandoc", sFile, "-o", tFile, "--extract-media=cache/image")
+		_, err = execCommand(time.Second * 300, "pandoc", sFile, "-o", tFile, "--extract-media=" + imageDir)
 		if err != nil {
 			fmt.Printf("ret %v\n", err.Error())
 		}
-	}
+	}*/
+
+/*	s := ""
 
 	mysqlManager := dbinstance.GetMysqlInstance()
 
 	defer mysqlManager.Destroy()
 
 	db := mysqlManager.DB
-
-	OsIoutil(tFile, db)
+*/
+	//osIoutil(tFile, db)
 }
 
 func isTexFileExist(f string) bool {
@@ -68,7 +71,7 @@ func isTexFileExist(f string) bool {
 	return err == nil || os.IsExist(err)
 }
 
-func OsIoutil(name string, db *gorm.DB) {
+func osIoutil(name string, db *gorm.DB) {
 
 	if fileObj, err := os.Open(name); err == nil {
 		defer fileObj.Close()
@@ -78,8 +81,8 @@ func OsIoutil(name string, db *gorm.DB) {
 		}
 
 		rd := bufio.NewReader(fileObj)
-		var testingMap map[int]string
-		testingMap = make(map[int]string)
+		var questionMap map[int]string
+		questionMap = make(map[int]string)
 		isTestStart := false
 		isTestEnd := false
 		i := 0
@@ -91,7 +94,7 @@ func OsIoutil(name string, db *gorm.DB) {
 			if err != nil || io.EOF == err {
 				isTestStart = false
 				isTestEnd = true
-				TestingParse(testingMap, tType, db)
+				questionParse(questionMap, tType, db)
 				break
 			} else {
 				for k, v := range testingType {
@@ -110,15 +113,15 @@ func OsIoutil(name string, db *gorm.DB) {
 				}
 
 				if isTestEnd {
-					TestingParse(testingMap, oType, db)
+					questionParse(questionMap, oType, db)
 					oType = tType
 					isTestEnd = false
-					testingMap = make(map[int]string)
+					questionMap = make(map[int]string)
 					t_l = 0
 				}
 
 				if isTestStart {
-					testingMap[t_l] = line
+					questionMap[t_l] = line
 					t_l++
 				}
 			}
@@ -126,7 +129,7 @@ func OsIoutil(name string, db *gorm.DB) {
 	}
 }
 
-func TestingParse(tMap map[int]string, tType string, db *gorm.DB) error {
+func questionParse(tMap map[int]string, tType string, db *gorm.DB) error {
 
 	question := model.Question{}
 	question.Type = tType
