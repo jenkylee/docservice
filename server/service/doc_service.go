@@ -2,8 +2,6 @@ package service
 
 import (
 	"bufio"
-	"crypto/md5"
-	"encoding/hex"
 	"errors"
 	"github.com/jinzhu/gorm"
 	"io"
@@ -61,18 +59,18 @@ func (doc docService) Import (s string) (string, error){
 	tFile := dir + "tex/" + strings.Replace(s, fileExt, ".tex", 1)
 	imageDir := dir + "tex/image"
     log.Println(sFile)
-	if !isFileExist(sFile) {
+	if !doc.isFileExist(sFile) {
 		return "", errors.New("源文件不存在")
 	}
 
-	if !isFileExist(tFile) {
+	if !doc.isFileExist(tFile) {
 		_, err := execCommand(time.Second * 300, "pandoc", sFile, "-o", tFile, "--extract-media=" + imageDir)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	osIoutil(tFile, doc.db)
+	doc.osIoutil(tFile, doc.db)
 
 	return "ok", nil
 }
@@ -81,13 +79,13 @@ func (docService) Export(s string) int {
 	return len(s)
 }
 
-func isFileExist(f string) bool {
+func (docService) isFileExist(f string) bool {
 	_, err := os.Stat(f)
 
 	return err == nil || os.IsExist(err)
 }
 
-func osIoutil(name string, db *gorm.DB) {
+func (doc docService) osIoutil(name string, db *gorm.DB) {
 	if fileObj, err := os.Open(name); err == nil {
 		defer fileObj.Close()
 
@@ -109,7 +107,7 @@ func osIoutil(name string, db *gorm.DB) {
 			if err != nil || io.EOF == err {
 				isTestStart = false
 				isTestEnd = true
-				testingParse(testingMap, tType, db)
+				doc.testingParse(testingMap, tType, db)
 				break
 			} else {
 				for k, v := range testingType {
@@ -128,7 +126,7 @@ func osIoutil(name string, db *gorm.DB) {
 				}
 
 				if isTestEnd {
-					testingParse(testingMap, oType, db)
+					doc.testingParse(testingMap, oType, db)
 					oType = tType
 					isTestEnd = false
 					testingMap = make(map[int]string)
@@ -144,7 +142,7 @@ func osIoutil(name string, db *gorm.DB) {
 	}
 }
 
-func testingParse(tMap map[int]string, tType string, db *gorm.DB) error {
+func (docService) testingParse(tMap map[int]string, tType string, db *gorm.DB) error {
 
 	question := model.Question{}
 	question.Type = tType
@@ -226,13 +224,6 @@ func testingParse(tMap map[int]string, tType string, db *gorm.DB) error {
 	err := questionRepository.Create(&question)
 
 	return err
-}
-
-func md5str(str string) string {
-	h := md5.New()
-	h.Write([]byte(str))
-
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 var ErrEmpty = errors.New("empty strin")
