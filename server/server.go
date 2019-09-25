@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -11,11 +12,14 @@ import (
 	"strings"
 	"yokitalk.com/docservice/server/dbinstance"
 
+	"github.com/dgrijalva/jwt-go"
+	gokitjwt "github.com/go-kit/kit/auth/jwt"
 	"github.com/go-kit/kit/log"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	httptransport "github.com/go-kit/kit/transport/http"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"yokitalk.com/docservice/server/middlewares"
 	"yokitalk.com/docservice/server/service"
 )
@@ -23,8 +27,39 @@ import (
 const maxUploadSize = 100 * 1024 * 1024
 const uploadPath  = "./cache/upload"
 
+const (
+	basicAuthUser = "prometheus"
+	basicAuthPass = "password"
+)
+
+func methodControl(method string, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == method {
+			h.ServeHTTP(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+}
+
+func basicAuth(username string, password string, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+
+		if !ok || subtle.ConstantTimeCompare([]byte(user), []byte(username)) != 1 || subtle.ConstantTimeCompare([]byte(pass), []byte(password)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Basic realm="metrics"`)
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("Unauthorised\n"))
+			return
+		}
+
+		h.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	logger := log.NewLogfmtLogger(os.Stderr)
+	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 
 	fieldKeys := []string{"method", "error"}
 	requestCount := kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
@@ -52,28 +87,79 @@ func main() {
 
 	db := mysqlManager.DB
 
-	var ds service.Service
+	var ds service.DocService
 	ds = service.NewDocService(db)
 
 	ds = middlewares.LoggingMiddleware{logger, ds}
 	ds = middlewares.InstrumentingMiddleware{requestCount, requestLatency, countResult, ds}
 
+	key := []byte("supersecret")
+	keys := func(token *jwt.Token) (interface{}, error) {
+		return key, nil
+	}
+	jwtOptions := []httptransport.ServerOption {
+		httptransport.ServerErrorEncoder(service.AuthErrorEncoder),
+		httptransport.ServerErrorLogger(logger),
+		httptransport.ServerBefore(gokitjwt.ContextToHTTP()),
+	}
 
 	importHandler := httptransport.NewServer(
-		service.MakeImportEndpoint(ds),
+		gokitjwt.NewParser(keys, jwt.SigningMethodHS256, gokitjwt.StandardClaimsFactory)(service.MakeImportEndpoint(ds)),
 		service.DecodeImportRequest,
 		service.EncodeResponse,
+		jwtOptions...,
 	)
 
 	exportHandler := httptransport.NewServer(
-		service.MakeExportEndpoint(ds),
+		gokitjwt.NewParser(keys, jwt.SigningMethodES256, gokitjwt.StandardClaimsFactory)(service.MakeExportEndpoint(ds)),
 		service.DecodeExportRequest,
 		service.EncodeResponse,
+		jwtOptions...,
 	)
 
-	http.Handle("/import", importHandler)
-	http.Handle("/export", exportHandler)
-	http.Handle("/metrics", promhttp.Handler())
+	authFieldKeys := []string{"method", "error"}
+	requestAuthCount := kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
+		Namespace: "my_group",
+		Subsystem: "auth_service",
+		Name:      "request_count",
+		Help:      "Number of requests received.",
+	}, authFieldKeys)
+	requestAuthLatency := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
+		Namespace: "my_group",
+		Subsystem: "auth_service",
+		Name:      "request_latency_microseconds",
+		Help:      "Total duration of requests in microseconds.",
+	}, authFieldKeys)
+
+	// API clients database
+	var clients = map[string]string{
+		"mobile": "m_secret",
+		"web":    "w_secret",
+	}
+
+	var auth service.AuthService
+	auth = service.NewAuthService(key, clients)
+
+	auth = middlewares.LoggingAuthMiddleware{logger, auth}
+	auth = middlewares.InstrumentingAuthMiddleware{requestAuthCount, requestAuthLatency, auth}
+
+	options := []httptransport.ServerOption{
+		httptransport.ServerErrorEncoder(service.AuthErrorEncoder),
+		httptransport.ServerErrorLogger(logger),
+	}
+
+	authHandler := httptransport.NewServer(
+		service.MakeAuthEndpoint(auth),
+		service.DecodeAuthRequest,
+		service.EncodeResponse,
+		options...,
+	)
+
+	http.Handle("/auth", methodControl("POST", authHandler))
+
+	http.Handle("/import", methodControl("POST", importHandler))
+	http.Handle("/export", methodControl("POST", exportHandler))
+	http.Handle("/metrics", basicAuth(basicAuthUser, basicAuthPass, promhttp.Handler()))
 	http.HandleFunc("/upload", uploadFileHandler())
 
 	fs := http.FileServer(http.Dir(uploadPath))

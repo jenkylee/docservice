@@ -8,10 +8,22 @@ import (
 	"github.com/go-kit/kit/endpoint"
 )
 
-func MakeImportEndpoint(ds Service) endpoint.Endpoint {
+func MakeAuthEndpoint(as AuthService) endpoint.Endpoint {
 	return func(_ context.Context, request interface{}) (response interface{}, err error) {
+		req := request.(authRequest)
+		token, err := as.Auth(req.ClientID, req.ClientSecret)
+		if err != nil {
+			return nil, err
+		}
+
+		return authResponse{token, ""}, nil
+	}
+}
+
+func MakeImportEndpoint(ds DocService) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(importRequest)
-		v, err := ds.Import(req.S)
+		v, err := ds.Import(ctx, req.S)
 		if err != nil {
 			return importResponse{v, err.Error()}, nil
 		}
@@ -20,16 +32,25 @@ func MakeImportEndpoint(ds Service) endpoint.Endpoint {
 	}
 }
 
-func MakeExportEndpoint(ds Service) endpoint.Endpoint {
-	return func(_ context.Context, request interface{}) (response interface{}, err error) {
+func MakeExportEndpoint(ds DocService) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(exportRequest)
-		v := ds.Export(req.S)
+		v := ds.Export(ctx, req.S)
 		if err != nil {
 			return exportResponse{v}, nil
 		}
 
 		return exportResponse{v}, nil
 	}
+}
+
+func DecodeAuthRequest(_ context.Context, r *http.Request) (interface{}, error)  {
+	var request authRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		return nil, err
+	}
+
+	return request, nil
 }
 
 func DecodeImportRequest(_ context.Context, r *http.Request) (interface{}, error)  {
@@ -54,17 +75,36 @@ func EncodeResponse(_ context.Context, w http.ResponseWriter, response interface
 	return json.NewEncoder(w).Encode(response)
 }
 
+func AuthErrorEncoder(_ context.Context, err error, w http.ResponseWriter)  {
+	code := http.StatusUnauthorized
+	msg  := err.Error()
+
+	w.WriteHeader(code)
+
+	json.NewEncoder(w).Encode(authResponse{Token: "", Err: msg})
+}
+
+type authRequest struct {
+	ClientID     string `json:"clientId"`
+	ClientSecret string `json:"clientSecret"`
+}
+
 type importRequest struct {
 	S string `json:"s"`
 }
 
+type exportRequest struct {
+	S string `json:"s"`
+}
+
+type authResponse struct {
+	Token   string `json:"token,omitempty"`
+	Err   string `json:"error,omitempty"`
+} 
+
 type importResponse struct {
 	V string `json:"v"`
 	Err string `json:"err, omitempty"`
-}
-
-type exportRequest struct {
-	S string `json:"s"`
 }
 
 type exportResponse struct {

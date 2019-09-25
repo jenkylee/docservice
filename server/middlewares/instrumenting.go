@@ -1,51 +1,61 @@
 package middlewares
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/go-kit/kit/auth/jwt"
 	"github.com/go-kit/kit/metrics"
 
 	"yokitalk.com/docservice/server/service"
 )
 
+type InstrumentingAuthMiddleware struct {
+	RequestCount   metrics.Counter
+	RequestLatency metrics.Histogram
+	Next           service.AuthService
+}
+
+func (mw InstrumentingAuthMiddleware) Auth(clientID string, clientSecret string) (token string, err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "Auth", "error", fmt.Sprint(err != nil)}
+		mw.RequestCount.With(lvs...).Add(1)
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	token, err = mw.Next.Auth(clientID, clientSecret)
+	return
+}
+
 type InstrumentingMiddleware struct {
 	RequestCount   metrics.Counter
 	RequestLatency metrics.Histogram
 	CountResult    metrics.Histogram
-	Next           service.Service
+	Next           service.DocService
 }
 
-func (mw InstrumentingMiddleware) Login(name, pwd string) (output string, err error) {
+func (mw InstrumentingMiddleware) Import(ctx context.Context, s string) (output string, err error) {
 	defer func(begin time.Time) {
-		lvs := []string{"method", "login", "error", fmt.Sprint(err != nil)}
+		custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
+		lvs := []string{"method", "import", "client", custCl.ClientID, "error", fmt.Sprint(err != nil)}
 		mw.RequestCount.With(lvs...).Add(1)
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	output, err = mw.Next.Login(name, pwd)
+	output, err = mw.Next.Import(ctx, s)
 	return
 }
 
-func (mw InstrumentingMiddleware) Import(s string) (output string, err error) {
+func (mw InstrumentingMiddleware) Export(ctx context.Context, s string) (n int) {
 	defer func(begin time.Time) {
-		lvs := []string{"method", "import", "error", fmt.Sprint(err != nil)}
-		mw.RequestCount.With(lvs...).Add(1)
-		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
-	}(time.Now())
-
-	output, err = mw.Next.Import(s)
-	return
-}
-
-func (mw InstrumentingMiddleware) Export(s string) (n int) {
-	defer func(begin time.Time) {
-		lvs := []string{"method", "export", "error", "false"}
+		custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
+		lvs := []string{"method", "export", "client", custCl.ClientID, "error", "false"}
 		mw.RequestCount.With(lvs...).Add(1)
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 		mw.CountResult.Observe(float64(n))
 	}(time.Now())
 
-	n = mw.Next.Export(s)
+	n = mw.Next.Export(ctx, s)
 	return
 }

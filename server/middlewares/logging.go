@@ -1,8 +1,10 @@
 package middlewares
 
 import (
+	"context"
 	"time"
 
+	"github.com/go-kit/kit/auth/jwt"
 	"github.com/go-kit/kit/log"
 
 	"yokitalk.com/docservice/server/service"
@@ -10,28 +12,15 @@ import (
 
 type LoggingMiddleware struct {
 	Logger log.Logger
-	Next service.Service
+	Next service.DocService
 }
 
-func (mw LoggingMiddleware) Login(name, pwd string) (output string, err error) {
+func (mw LoggingMiddleware) Import(ctx context.Context, s string) (output string, err error) {
 	defer func(begin time.Time) {
-		_ = mw.Logger.Log(
-			"method", "import",
-			"input", "用户名："+name,
-			"output", output,
-			"err", err,
-			"took", time.Since(begin),
-		)
-	}(time.Now())
-
-	output, err = mw.Next.Import(s)
-	return
-}
-
-func (mw LoggingMiddleware) Import(s string) (output string, err error) {
-	defer func(begin time.Time) {
+		custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
 		_ = mw.Logger.Log(
 				"method", "import",
+				"client", custCl.ClientID,
 				"input", s,
 				"output", output,
 				"err", err,
@@ -39,20 +28,43 @@ func (mw LoggingMiddleware) Import(s string) (output string, err error) {
 			)
 	}(time.Now())
 
-	output, err = mw.Next.Import(s)
+	output, err = mw.Next.Import(ctx, s)
 	return
 }
 
-func (mw LoggingMiddleware) Export(s string) (n int) {
+func (mw LoggingMiddleware) Export(ctx context.Context, s string) (n int) {
 	defer func(begin time.Time) {
+		custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
 		_ = mw.Logger.Log(
 			"method", "export",
+			"client", custCl.ClientID,
 			"input", s,
 			"n", n,
 			"took", time.Since(begin),
 		)
 	}(time.Now())
 
-	n = mw.Next.Export(s)
+	n = mw.Next.Export(ctx, s)
 	return
 }
+
+type LoggingAuthMiddleware struct {
+	Logger log.Logger
+	Next service.AuthService
+}
+
+func (mw LoggingAuthMiddleware) Auth(clientID string, clientSecret string) (token string, err error) {
+	defer func(begin time.Time) {
+		_ = mw.Logger.Log(
+			"method", "auth",
+			"clientID", clientID,
+			"token", token,
+			"err", err,
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+
+	token, err = mw.Next.Auth(clientID, clientSecret)
+	return
+}
+

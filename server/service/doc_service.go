@@ -2,6 +2,7 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/jinzhu/gorm"
@@ -17,6 +18,12 @@ import (
 	"yokitalk.com/docservice/server/model"
 	"yokitalk.com/docservice/server/repository"
 )
+
+// 提供DocService 操作
+type DocService interface {
+	Import(context.Context, string) (string, error)
+	Export(context.Context, string) (int)
+}
 
 var testingType map[string]string // 创建试题类型集合
 
@@ -36,24 +43,14 @@ type docService struct {
 	db   *gorm.DB
 }
 
-func NewDocService(db *gorm.DB) Service {
+func NewDocService(db *gorm.DB) DocService {
 	service := docService{}
 	service.db = db
 
 	return service
 }
 
-func (doc docService) Login(name, pwd string) (string, error) {
-	if name == "name" && pwd == "pwd" {
-		token, err := Sign(name, pwd)
-
-		return token, err
-	}
-
-	return "", errors.New("你的用户名或者密码错误")
-}
-
-func (doc docService) Import (s string) (string, error){
+func (doc docService) Import(ctx context.Context, s string) (string, error){
 	if s == "" {
 		return "", ErrEmpty
 	}
@@ -86,7 +83,7 @@ func (doc docService) Import (s string) (string, error){
 	return "ok", nil
 }
 
-func (docService) Export(s string) int {
+func (docService) Export(ctx context.Context, s string) int {
 	return len(s)
 }
 
