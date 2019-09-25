@@ -43,6 +43,16 @@ func NewDocService(db *gorm.DB) Service {
 	return service
 }
 
+func (doc docService) Login(name, pwd string) (string, error) {
+	if name == "name" && pwd == "pwd" {
+		token, err := Sign(name, pwd)
+
+		return token, err
+	}
+
+	return "", errors.New("你的用户名或者密码错误")
+}
+
 func (doc docService) Import (s string) (string, error){
 	if s == "" {
 		return "", ErrEmpty

@@ -16,6 +16,17 @@ type InstrumentingMiddleware struct {
 	Next           service.Service
 }
 
+func (mw InstrumentingMiddleware) Login(name, pwd string) (output string, err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "login", "error", fmt.Sprint(err != nil)}
+		mw.RequestCount.With(lvs...).Add(1)
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	output, err = mw.Next.Login(name, pwd)
+	return
+}
+
 func (mw InstrumentingMiddleware) Import(s string) (output string, err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "import", "error", fmt.Sprint(err != nil)}

@@ -13,6 +13,21 @@ type LoggingMiddleware struct {
 	Next service.Service
 }
 
+func (mw LoggingMiddleware) Login(name, pwd string) (output string, err error) {
+	defer func(begin time.Time) {
+		_ = mw.Logger.Log(
+			"method", "import",
+			"input", "用户名："+name,
+			"output", output,
+			"err", err,
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+
+	output, err = mw.Next.Import(s)
+	return
+}
+
 func (mw LoggingMiddleware) Import(s string) (output string, err error) {
 	defer func(begin time.Time) {
 		_ = mw.Logger.Log(
