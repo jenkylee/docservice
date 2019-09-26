@@ -13,9 +13,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/dgrijalva/jwt-go"
+    kitjwt "github.com/go-kit/kit/auth/jwt"
 	kitlog "github.com/go-kit/kit/log"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
-	httptransport "github.com/go-kit/kit/transport/http"
+	kithttp "github.com/go-kit/kit/transport/http"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -105,28 +107,29 @@ func main() {
     //fmt.Println(publicKey)
 	var secretKey = []byte("abcd1234!@#$")
 
-	/*jwtKeyFunc := func(token *jwt.Token) (interface{}, error) {
+	jwtKeyFunc := func(token *jwt.Token) (interface{}, error) {
 		return secretKey, nil
-	}*/
+	}
 
-	/*jwtOptions := []httptransport.ServerOption {
-		httptransport.ServerErrorEncoder(service.AuthErrorEncoder),
-		httptransport.ServerErrorLogger(logger),
-		httptransport.ServerBefore(kitjwt.ContextToHTTP()),
-	}*/
+	options := []kithttp.ServerOption{
+		kithttp.ServerErrorEncoder(service.AuthErrorEncoder),
+		kithttp.ServerErrorLogger(logger),
+	}
 
-	importHandler := httptransport.NewServer(
-		service.MakeImportEndpoint(ds), //kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, kitjwt.StandardClaimsFactory)(service.MakeImportEndpoint(ds)),
+	importHandler := kithttp.NewServer(
+		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, kitjwt.StandardClaimsFactory)(service.MakeImportEndpoint(ds)),
+		//service.MakeImportEndpoint(ds),
 		service.DecodeImportRequest,
 		service.EncodeResponse,
-		//jwtOptions...,
+		append(options, kithttp.ServerBefore(kitjwt.HTTPToContext()))...,
 	)
 
-	exportHandler := httptransport.NewServer(
-		service.MakeExportEndpoint(ds), //kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, kitjwt.StandardClaimsFactory)(service.MakeExportEndpoint(ds)),
+	exportHandler := kithttp.NewServer(
+		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, kitjwt.StandardClaimsFactory)(service.MakeExportEndpoint(ds)),
+		//service.MakeExportEndpoint(ds),
 		service.DecodeExportRequest,
 		service.EncodeResponse,
-		//jwtOptions...,
+		append(options, kithttp.ServerBefore(kitjwt.HTTPToContext()))...,
 	)
 
 	authFieldKeys := []string{"method", "error"}
@@ -155,12 +158,7 @@ func main() {
 	auth = middlewares.LoggingAuthMiddleware{Logger: logger, Next: auth}
 	auth = middlewares.InstrumentingAuthMiddleware{RequestCount: requestAuthCount, RequestLatency: requestAuthLatency, Next: auth}
 
-	options := []httptransport.ServerOption{
-		httptransport.ServerErrorEncoder(service.AuthErrorEncoder),
-		httptransport.ServerErrorLogger(logger),
-	}
-
-	authHandler := httptransport.NewServer(
+	authHandler := kithttp.NewServer(
 		service.MakeAuthEndpoint(auth),
 		service.DecodeAuthRequest,
 		service.EncodeResponse,
