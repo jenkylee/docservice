@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/subtle"
 	"fmt"
@@ -10,22 +12,21 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"yokitalk.com/docservice/server/dbinstance"
 
-	"github.com/dgrijalva/jwt-go"
-	gokitjwt "github.com/go-kit/kit/auth/jwt"
-	"github.com/go-kit/kit/log"
+	kitlog "github.com/go-kit/kit/log"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	httptransport "github.com/go-kit/kit/transport/http"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"yokitalk.com/docservice/server/dbinstance"
 	"yokitalk.com/docservice/server/middlewares"
 	"yokitalk.com/docservice/server/service"
 )
 
 const maxUploadSize = 100 * 1024 * 1024
 const uploadPath  = "./cache/upload"
+const downloadPath    = "./cache/download"
 
 const (
 	basicAuthUser = "prometheus"
@@ -58,8 +59,8 @@ func basicAuth(username string, password string, h http.Handler) http.Handler {
 }
 
 func main() {
-	logger := log.NewLogfmtLogger(os.Stderr)
-	logger = log.With(logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
+	logger := kitlog.NewLogfmtLogger(os.Stderr)
+	logger = kitlog.With(logger, "ts", kitlog.DefaultTimestampUTC, "caller", kitlog.DefaultCaller)
 
 	fieldKeys := []string{"method", "error"}
 	requestCount := kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
@@ -90,31 +91,42 @@ func main() {
 	var ds service.DocService
 	ds = service.NewDocService(db)
 
-	ds = middlewares.LoggingMiddleware{logger, ds}
-	ds = middlewares.InstrumentingMiddleware{requestCount, requestLatency, countResult, ds}
+	ds = middlewares.LoggingMiddleware{Logger: logger, Next: ds}
+	ds = middlewares.InstrumentingMiddleware{RequestCount: requestCount, RequestLatency: requestLatency, CountResult: countResult, Next: ds}
 
-	key := []byte("supersecret")
-	keys := func(token *jwt.Token) (interface{}, error) {
-		return key, nil
-	}
-	jwtOptions := []httptransport.ServerOption {
+	//privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	//fmt.Println(privateKey)
+	//
+	//if err != nil {
+	//	log.Fatalln(err)
+	//}
+	//
+	//publicKey := privateKey.PublicKey
+    //fmt.Println(publicKey)
+	var secretKey = []byte("abcd1234!@#$")
+
+	/*jwtKeyFunc := func(token *jwt.Token) (interface{}, error) {
+		return secretKey, nil
+	}*/
+
+	/*jwtOptions := []httptransport.ServerOption {
 		httptransport.ServerErrorEncoder(service.AuthErrorEncoder),
 		httptransport.ServerErrorLogger(logger),
-		httptransport.ServerBefore(gokitjwt.ContextToHTTP()),
-	}
+		httptransport.ServerBefore(kitjwt.ContextToHTTP()),
+	}*/
 
 	importHandler := httptransport.NewServer(
-		gokitjwt.NewParser(keys, jwt.SigningMethodHS256, gokitjwt.StandardClaimsFactory)(service.MakeImportEndpoint(ds)),
+		service.MakeImportEndpoint(ds), //kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, kitjwt.StandardClaimsFactory)(service.MakeImportEndpoint(ds)),
 		service.DecodeImportRequest,
 		service.EncodeResponse,
-		jwtOptions...,
+		//jwtOptions...,
 	)
 
 	exportHandler := httptransport.NewServer(
-		gokitjwt.NewParser(keys, jwt.SigningMethodES256, gokitjwt.StandardClaimsFactory)(service.MakeExportEndpoint(ds)),
+		service.MakeExportEndpoint(ds), //kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, kitjwt.StandardClaimsFactory)(service.MakeExportEndpoint(ds)),
 		service.DecodeExportRequest,
 		service.EncodeResponse,
-		jwtOptions...,
+		//jwtOptions...,
 	)
 
 	authFieldKeys := []string{"method", "error"}
@@ -138,10 +150,10 @@ func main() {
 	}
 
 	var auth service.AuthService
-	auth = service.NewAuthService(key, clients)
+	auth = service.NewAuthService(secretKey, clients)
 
-	auth = middlewares.LoggingAuthMiddleware{logger, auth}
-	auth = middlewares.InstrumentingAuthMiddleware{requestAuthCount, requestAuthLatency, auth}
+	auth = middlewares.LoggingAuthMiddleware{Logger: logger, Next: auth}
+	auth = middlewares.InstrumentingAuthMiddleware{RequestCount: requestAuthCount, RequestLatency: requestAuthLatency, Next: auth}
 
 	options := []httptransport.ServerOption{
 		httptransport.ServerErrorEncoder(service.AuthErrorEncoder),
@@ -162,11 +174,21 @@ func main() {
 	http.Handle("/metrics", basicAuth(basicAuthUser, basicAuthPass, promhttp.Handler()))
 	http.HandleFunc("/upload", uploadFileHandler())
 
-	fs := http.FileServer(http.Dir(uploadPath))
+	fs := http.FileServer(http.Dir(downloadPath))
 	http.Handle("/files/", http.StripPrefix("/files", fs))
 
 	logger.Log("msg", "HTTP", "addr", "8080")
 	logger.Log("err", http.ListenAndServe(":8080", nil))
+}
+
+func getKey() (*ecdsa.PrivateKey, error) {
+	prk, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+	if err != nil {
+		return prk, err
+	}
+
+	return prk, nil
 }
 
 func uploadFileHandler() http.HandlerFunc {
@@ -229,7 +251,7 @@ func uploadFileHandler() http.HandlerFunc {
 			renderError(w, "CANT_WRITE_FILE", http.StatusInternalServerError)
 			return
 		}
-		w.Write([]byte("SUCCESS"))
+		w.Write([]byte(fileName+fileExt))
 	})
 }
 

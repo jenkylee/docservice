@@ -35,12 +35,12 @@ func MakeImportEndpoint(ds DocService) endpoint.Endpoint {
 func MakeExportEndpoint(ds DocService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(exportRequest)
-		v := ds.Export(ctx, req.S)
+		v, err := ds.Export(ctx, req.S)
 		if err != nil {
-			return exportResponse{v}, nil
+			return exportResponse{v, ""}, nil
 		}
 
-		return exportResponse{v}, nil
+		return exportResponse{v, ""}, nil
 	}
 }
 
@@ -108,5 +108,6 @@ type importResponse struct {
 }
 
 type exportResponse struct {
-	V int `json:"v"`
+	V string `json:"v"`
+	Err string `json:"err, omitempty"`
 } 

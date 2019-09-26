@@ -22,7 +22,7 @@ import (
 // 提供DocService 操作
 type DocService interface {
 	Import(context.Context, string) (string, error)
-	Export(context.Context, string) (int)
+	Export(context.Context, string) (string, error)
 }
 
 var testingType map[string]string // 创建试题类型集合
@@ -78,13 +78,39 @@ func (doc docService) Import(ctx context.Context, s string) (string, error){
 		}
 	}
 
-	doc.osIoutil(tFile, doc.db)
+	//doc.osIoutil(tFile, doc.db)
 
-	return "ok", nil
+	return tFile, nil
 }
 
-func (docService) Export(ctx context.Context, s string) int {
-	return len(s)
+func (doc docService) Export(ctx context.Context, s string) (string, error) {
+	if s == "" {
+		return "", ErrEmpty
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	//fmt.Println("cwd", cwd)
+	dir := cwd + "/cache/"
+
+	fileExt := strings.ToLower(path.Ext(s))
+
+	sFile := dir + "tex/" + s
+	tFile := dir + "download/" + strings.Replace(s, fileExt, ".docx", 1)
+	imageDir := dir + "tex/image"
+	log.Println(sFile)
+	if !doc.isFileExist(sFile) {
+		return "", errors.New("源文件不存在")
+	}
+
+	if !doc.isFileExist(tFile) {
+		_, err := execCommand(time.Second * 300, "pandoc",  sFile, "-o", tFile, "--extract-media=" + imageDir, "--table-of-contents")
+		if err != nil {
+			return "", err
+		}
+	}
+	return tFile, nil
 }
 
 func (docService) isFileExist(f string) bool {

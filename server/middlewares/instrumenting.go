@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-kit/kit/auth/jwt"
 	"github.com/go-kit/kit/metrics"
 
 	"yokitalk.com/docservice/server/service"
@@ -37,8 +36,9 @@ type InstrumentingMiddleware struct {
 
 func (mw InstrumentingMiddleware) Import(ctx context.Context, s string) (output string, err error) {
 	defer func(begin time.Time) {
-		custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
-		lvs := []string{"method", "import", "client", custCl.ClientID, "error", fmt.Sprint(err != nil)}
+		//custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
+		//lvs := []string{"method", "import", "client", custCl.ClientID, "error", fmt.Sprint(err != nil)}
+		lvs := []string{"method", "import", "error", fmt.Sprint(err != nil)}
 		mw.RequestCount.With(lvs...).Add(1)
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
@@ -47,15 +47,16 @@ func (mw InstrumentingMiddleware) Import(ctx context.Context, s string) (output 
 	return
 }
 
-func (mw InstrumentingMiddleware) Export(ctx context.Context, s string) (n int) {
+func (mw InstrumentingMiddleware) Export(ctx context.Context, s string) (output string, err error) {
 	defer func(begin time.Time) {
-		custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
-		lvs := []string{"method", "export", "client", custCl.ClientID, "error", "false"}
+		//custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
+		//lvs := []string{"method", "export", "client", custCl.ClientID, "error", "false"}
+		lvs := []string{"method", "export", "error", "false"}
 		mw.RequestCount.With(lvs...).Add(1)
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
-		mw.CountResult.Observe(float64(n))
+		//mw.CountResult.Observe(float64(n))
 	}(time.Now())
 
-	n = mw.Next.Export(ctx, s)
+	output, err = mw.Next.Export(ctx, s)
 	return
 }

@@ -35,12 +35,14 @@ func generateToken(signingKey []byte, clientID string) (string, error) {
 		clientID,
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Second * expiration).Unix(),
-			IssuedAt: jwt.TimeFunc().Unix(),
+			//IssuedAt: jwt.TimeFunc().Unix(),
+			Issuer:    "system",
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
+	// 生成Token
 	return token.SignedString(signingKey)
 }
 
