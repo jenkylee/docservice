@@ -62,10 +62,14 @@ func (doc docService) Import(ctx context.Context, s string) (string, error){
 	dir := cwd + "/cache/"
 
 	fileExt := strings.ToLower(path.Ext(s))
+	_, file := path.Split(s)
+	fileName := strings.ToLower(file);
+	fileName = strings.Replace(fileName, fileExt, "", 1)
+	fmt.Println(fileName)
 
 	sFile := dir + "upload/" + s
-	tFile := dir + "tex/" + strings.Replace(s, fileExt, ".tex", 1)
-	imageDir := dir + "tex/image"
+	tFile := dir + "tex/" + fileName + "/" + strings.Replace(s, fileExt, ".tex", 1)
+	imageDir := dir + "tex/" + fileName + "/image"
     log.Println(sFile)
 	if !doc.isFileExist(sFile) {
 		return "", errors.New("源文件不存在")
@@ -95,10 +99,13 @@ func (doc docService) Export(ctx context.Context, s string) (string, error) {
 	dir := cwd + "/cache/"
 
 	fileExt := strings.ToLower(path.Ext(s))
-
-	sFile := dir + "tex/" + s
+	_, file := path.Split(s)
+	fileName := strings.ToLower(file);
+	fileName = strings.Replace(fileName, fileExt, "", 1)
+	fmt.Println(fileName)
+	sFile := dir + "tex/" + fileName + "/" + s
 	tFile := dir + "download/" + strings.Replace(s, fileExt, ".docx", 1)
-	imageDir := dir + "tex/image"
+	imageDir := dir + "tex//" + fileName + "/image"
 	log.Println(sFile)
 	if !doc.isFileExist(sFile) {
 		return "", errors.New("源文件不存在")
