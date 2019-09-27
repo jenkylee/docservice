@@ -82,7 +82,7 @@ func (doc docService) Import(ctx context.Context, s string) (string, error){
 		}
 	}
 
-	doc.osIoutil(tFile, doc.db)
+	//doc.osIoutil(tFile, doc.db)
 
 	return tFile, nil
 }

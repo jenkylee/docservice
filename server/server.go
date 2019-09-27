@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/subtle"
 	"fmt"
@@ -14,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/dgrijalva/jwt-go"
-    kitjwt "github.com/go-kit/kit/auth/jwt"
+	kitjwt "github.com/go-kit/kit/auth/jwt"
 	kitlog "github.com/go-kit/kit/log"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	kithttp "github.com/go-kit/kit/transport/http"
@@ -177,16 +175,6 @@ func main() {
 
 	logger.Log("msg", "HTTP", "addr", "8080")
 	logger.Log("err", http.ListenAndServe(":8080", nil))
-}
-
-func getKey() (*ecdsa.PrivateKey, error) {
-	prk, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-
-	if err != nil {
-		return prk, err
-	}
-
-	return prk, nil
 }
 
 func uploadFileHandler() http.HandlerFunc {
