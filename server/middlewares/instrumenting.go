@@ -53,8 +53,7 @@ func (mw InstrumentingMiddleware) Export(ctx context.Context, s string) (output 
 		//lvs := []string{"method", "export", "client", custCl.ClientID, "error", "false"}
 		lvs := []string{"method", "export", "error", "false"}
 		mw.RequestCount.With(lvs...).Add(1)
-		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
-		//mw.CountResult.Observe(float64(n))
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds()) 	//mw.CountResult.Observe(float64(n))
 	}(time.Now())
 
 	output, err = mw.Next.Export(ctx, s)
