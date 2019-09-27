@@ -146,7 +146,7 @@ func (doc docService) Upload(ctx context.Context, r *http.Request) (string, erro
 	// check file type, detectcontenttype only needs the first 512 bytes
 	filetype := http.DetectContentType(fileBytes)
 	fmt.Println("文件类型", filetype)
-	switch filetype {
+	/*switch filetype {
 	case "image/jpeg", "image/jpg":
 	case "image/gif", "image/png":
 	case "application/pdf":
@@ -154,20 +154,26 @@ func (doc docService) Upload(ctx context.Context, r *http.Request) (string, erro
 		break
 	default:
 		return "INVALID_FILE_TYPE", nil
-	}
+	}*/
 
 	fileExt := strings.ToLower(path.Ext(fileName))
+	if fileExt != ".docx" {
+		return "INVALID_FILE_TYPE", nil
+	}
 	newFilName := randToken(12)
 
 	newPath := filepath.Join(uploadPath, newFilName+fileExt)
 	fmt.Printf("FileType: %s, File: %s\n", fileExt, newPath)
 
-	// write file
+	// 创建文件
 	newFile, err := os.Create(newPath)
 	if err != nil {
 		return "CANT_WRITE_FILE", nil
 	}
 	defer newFile.Close() // idempotent, okay to call twice
+
+	//将文件写到本地
+	//_, err = io.Copy(newFile, file)
 	if _, err := newFile.Write(fileBytes); err != nil || newFile.Close() != nil {
 		return "CANT_WRITE_FILE", nil
 	}
