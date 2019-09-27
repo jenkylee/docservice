@@ -129,7 +129,7 @@ func (doc docService) Upload(ctx context.Context, r *http.Request) (string, erro
 	file, handler, err := r.FormFile("file")
 	defer file.Close()
 	if err != nil {
-		return "", err
+		return "INVALID_FILE", err
 	}
 
 	if handler.Size > maxUploadSize {
@@ -140,7 +140,7 @@ func (doc docService) Upload(ctx context.Context, r *http.Request) (string, erro
 
 	fileBytes, err := ioutil.ReadAll(file)
 	if err != nil {
-		return "", err
+		return "INVALID_FILE", err
 	}
 
 	// check file type, detectcontenttype only needs the first 512 bytes

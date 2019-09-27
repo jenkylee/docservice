@@ -44,7 +44,7 @@ func EncodeResponse(_ context.Context, w http.ResponseWriter, response interface
 	return json.NewEncoder(w).Encode(response)
 }
 
-func ServiceErrorEncoder(_ context.Context, err error, w http.ResponseWriter)  {
+func ErrorEncoder(_ context.Context, err error, w http.ResponseWriter)  {
 	code := http.StatusUnauthorized
 	msg  := err.Error()
 
