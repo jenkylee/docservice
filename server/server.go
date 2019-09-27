@@ -9,16 +9,15 @@ import (
 	kithttp "github.com/go-kit/kit/transport/http"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"io"
+	"log"
 	"net/http"
 	"os"
-
 	"yokitalk.com/docservice/server/dbinstance"
 	"yokitalk.com/docservice/server/middlewares"
 	"yokitalk.com/docservice/server/service"
 )
 
-const maxUploadSize = 100 * 1024 * 1024
-const uploadPath  = "./cache/upload"
 const downloadPath    = "./cache/download"
 
 const (
@@ -174,11 +173,49 @@ func main() {
 	http.Handle("/export", methodControl("POST", exportHandler))
 	http.Handle("/upload", methodControl("POST", uploadHandler))
 	http.Handle("/metrics", basicAuth(basicAuthUser, basicAuthPass, promhttp.Handler()))
-	//http.HandleFunc("/upload", uploadFileHandler())
 
-	fs := http.FileServer(http.Dir(downloadPath))
-	http.Handle("/files/", http.StripPrefix("/files", fs))
+	http.HandleFunc("/download", downloadFileHandler())
+	//fs := http.FileServer(http.Dir(downloadPath))
+	//http.Handle("/files/", http.StripPrefix("/files", fs))
 
 	logger.Log("msg", "HTTP", "addr", "8080")
 	logger.Log("err", http.ListenAndServe(":8080", nil))
+}
+
+func downloadFileHandler() http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		//文件下载只允许GET方法
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// 文件名
+		fileName := r.FormValue("filename")
+
+		if fileName == "" {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+		log.Println("fileName:" + fileName)
+
+		// 打开文件
+		file, err := os.Open(downloadPath + "/" +fileName)
+		if err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+		// 结束后关闭文件
+		defer file.Close()
+
+		// 设置响应的header头
+		w.Header().Add("Content-type", "application/octet-stream")
+		w.Header().Add("content-disposition", "attachment; filename=\""+fileName+"\"")
+		// 将从文件写入resposeBody
+		_, err = io.Copy(w, file)
+		if err != nil {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+	})
 }
