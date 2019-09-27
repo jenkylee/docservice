@@ -3,6 +3,7 @@ package middlewares
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/go-kit/kit/metrics"
@@ -57,5 +58,18 @@ func (mw InstrumentingMiddleware) Export(ctx context.Context, s string) (output 
 	}(time.Now())
 
 	output, err = mw.Next.Export(ctx, s)
+	return
+}
+
+func (mw InstrumentingMiddleware) Upload(ctx context.Context, r *http.Request) (output string, err error) {
+	defer func(begin time.Time) {
+		//custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
+		//lvs := []string{"method", "export", "client", custCl.ClientID, "error", "false"}
+		lvs := []string{"method", "upload", "error", "false"}
+		mw.RequestCount.With(lvs...).Add(1)
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds()) 	//mw.CountResult.Observe(float64(n))
+	}(time.Now())
+
+	output, err = mw.Next.Upload(ctx, r)
 	return
 }

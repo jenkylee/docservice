@@ -33,9 +33,26 @@ func DecodeExportRequest(_ context.Context, r *http.Request) (interface{}, error
 	return request, nil
 }
 
+func DecodeUploadRequest(_ context.Context, r *http.Request) (interface{}, error)  {
+	var request uploadRequest
+	request.R = r
+
+	return request, nil
+}
+
 func EncodeResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {
 	return json.NewEncoder(w).Encode(response)
 }
+
+func ServiceErrorEncoder(_ context.Context, err error, w http.ResponseWriter)  {
+	code := http.StatusUnauthorized
+	msg  := err.Error()
+
+	w.WriteHeader(code)
+
+	json.NewEncoder(w).Encode(serviceRespose{V: "", Err: msg})
+}
+
 
 func AuthErrorEncoder(_ context.Context, err error, w http.ResponseWriter)  {
 	code := http.StatusUnauthorized
@@ -72,4 +89,18 @@ type importResponse struct {
 type exportResponse struct {
 	V string `json:"v"`
 	Err string `json:"err, omitempty"`
-} 
+}
+
+type uploadRequest struct {
+	R *http.Request
+}
+
+type uploadResponse struct {
+	V string `json:"v"`
+	Err string `json:"err, omitempty"`
+}
+
+type serviceRespose struct {
+	V string `json:"v"`
+	Err string `json:"err, omitempty"`
+}

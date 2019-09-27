@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"github.com/jinzhu/gorm"
 	"io"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -23,6 +26,7 @@ import (
 type DocService interface {
 	Import(context.Context, string) (string, error)
 	Export(context.Context, string) (string, error)
+	Upload(context.Context, *http.Request) (string, error)
 }
 
 var testingType map[string]string // 创建试题类型集合
@@ -118,6 +122,57 @@ func (doc docService) Export(ctx context.Context, s string) (string, error) {
 		}
 	}
 	return tFile, nil
+}
+
+func (doc docService) Upload(ctx context.Context, r *http.Request) (string, error) {
+
+	file, handler, err := r.FormFile("file")
+	defer file.Close()
+	if err != nil {
+		return "", err
+	}
+
+	if handler.Size > maxUploadSize {
+		return "FILE_TOO_BIG", nil
+	}
+
+	fileName := handler.Filename
+
+	fileBytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		return "", err
+	}
+
+	// check file type, detectcontenttype only needs the first 512 bytes
+	filetype := http.DetectContentType(fileBytes)
+	fmt.Println("文件类型", filetype)
+	switch filetype {
+	case "image/jpeg", "image/jpg":
+	case "image/gif", "image/png":
+	case "application/pdf":
+	case "application/zip":
+		break
+	default:
+		return "INVALID_FILE_TYPE", nil
+	}
+
+	fileExt := strings.ToLower(path.Ext(fileName))
+	newFilName := randToken(12)
+
+	newPath := filepath.Join(uploadPath, newFilName+fileExt)
+	fmt.Printf("FileType: %s, File: %s\n", fileExt, newPath)
+
+	// write file
+	newFile, err := os.Create(newPath)
+	if err != nil {
+		return "CANT_WRITE_FILE", nil
+	}
+	defer newFile.Close() // idempotent, okay to call twice
+	if _, err := newFile.Write(fileBytes); err != nil || newFile.Close() != nil {
+		return "CANT_WRITE_FILE", nil
+	}
+
+	return newFilName+fileExt, nil
 }
 
 func (docService) isFileExist(f string) bool {

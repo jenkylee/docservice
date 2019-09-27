@@ -109,8 +109,8 @@ func main() {
 		return secretKey, nil
 	}
 
-	options := []kithttp.ServerOption{
-		kithttp.ServerErrorEncoder(service.AuthErrorEncoder),
+	jwtOptions := []kithttp.ServerOption{
+		kithttp.ServerErrorEncoder(service.ServiceErrorEncoder),
 		kithttp.ServerErrorLogger(logger),
 	}
 
@@ -119,7 +119,7 @@ func main() {
 		//service.MakeImportEndpoint(ds),
 		service.DecodeImportRequest,
 		service.EncodeResponse,
-		append(options, kithttp.ServerBefore(kitjwt.HTTPToContext()))...,
+		append(jwtOptions, kithttp.ServerBefore(kitjwt.HTTPToContext()))...,
 	)
 
 	exportHandler := kithttp.NewServer(
@@ -127,7 +127,14 @@ func main() {
 		//service.MakeExportEndpoint(ds),
 		service.DecodeExportRequest,
 		service.EncodeResponse,
-		append(options, kithttp.ServerBefore(kitjwt.HTTPToContext()))...,
+		append(jwtOptions, kithttp.ServerBefore(kitjwt.HTTPToContext()))...,
+	)
+
+	uploadHandler := kithttp.NewServer(
+		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, kitjwt.StandardClaimsFactory)(service.MakeUploadEndpint(ds)),
+		service.DecodeUploadRequest,
+		service.EncodeResponse,
+		append(jwtOptions, kithttp.ServerBefore(kitjwt.HTTPToContext()))...,
 	)
 
 	authFieldKeys := []string{"method", "error"}
@@ -156,6 +163,11 @@ func main() {
 	auth = middlewares.LoggingAuthMiddleware{Logger: logger, Next: auth}
 	auth = middlewares.InstrumentingAuthMiddleware{RequestCount: requestAuthCount, RequestLatency: requestAuthLatency, Next: auth}
 
+	options := []kithttp.ServerOption{
+		kithttp.ServerErrorEncoder(service.AuthErrorEncoder),
+		kithttp.ServerErrorLogger(logger),
+	}
+
 	authHandler := kithttp.NewServer(
 		service.MakeAuthEndpoint(auth),
 		service.DecodeAuthRequest,
@@ -167,8 +179,9 @@ func main() {
 
 	http.Handle("/import", methodControl("POST", importHandler))
 	http.Handle("/export", methodControl("POST", exportHandler))
+	http.Handle("/upload", methodControl("POST", uploadHandler))
 	http.Handle("/metrics", basicAuth(basicAuthUser, basicAuthPass, promhttp.Handler()))
-	http.HandleFunc("/upload", uploadFileHandler())
+	//http.HandleFunc("/upload", uploadFileHandler())
 
 	fs := http.FileServer(http.Dir(downloadPath))
 	http.Handle("/files/", http.StripPrefix("/files", fs))

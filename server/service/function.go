@@ -3,8 +3,10 @@ package service
 import (
 	"bytes"
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"syscall"
@@ -85,4 +87,10 @@ func md5str(str string) string {
 	h.Write([]byte(str))
 
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+func randToken(len int) string {
+	b := make([]byte, len)
+	rand.Read(b)
+	return fmt.Sprintf("%x", b)
 }

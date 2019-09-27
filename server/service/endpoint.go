@@ -41,3 +41,15 @@ func MakeExportEndpoint(ds DocService) endpoint.Endpoint {
 		return exportResponse{v, ""}, nil
 	}
 }
+
+func MakeUploadEndpint(ds DocService) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		req := request.(uploadRequest)
+		v, err := ds.Upload(ctx, req.R)
+		if err != nil {
+			return uploadResponse{v, ""}, nil
+		}
+
+		return uploadResponse{v, ""}, nil
+	}
+}

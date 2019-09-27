@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -44,6 +45,22 @@ func (mw LoggingMiddleware) Export(ctx context.Context, s string) (output string
 	}(time.Now())
 
 	output, err = mw.Next.Export(ctx, s)
+	return
+}
+
+func (mw LoggingMiddleware) Upload(ctx context.Context, r *http.Request) (output string, err error) {
+	defer func(begin time.Time) {
+		//custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
+		_ = mw.Logger.Log(
+			"method", "upload",
+			//"client", custCl.ClientID,
+			"input", "",
+			"output", output,
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+
+	output, err = mw.Next.Upload(ctx, r)
 	return
 }
 
