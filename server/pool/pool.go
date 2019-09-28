@@ -1,3 +1,4 @@
+// Package pool 通用资源池定义
 package pool
 
 import (

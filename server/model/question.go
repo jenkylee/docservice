@@ -1,3 +1,5 @@
+// Package model 定义数据库相关模型
+// 试题模型定义
 package model
 
 import "time"

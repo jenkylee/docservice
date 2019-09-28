@@ -1,3 +1,5 @@
+// Package model 定义数据库模型
+// 用户模型定义
 package model
 
 import (

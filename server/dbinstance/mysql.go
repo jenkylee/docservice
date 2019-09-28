@@ -1,3 +1,4 @@
+// Package dbinstance 数据库初始化及单例模式实例化相关
 package dbinstance
 
 import (

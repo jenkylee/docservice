@@ -1,3 +1,5 @@
+// Package service 定义 服务相关定义及函数
+// 微服务端点相关函数
 package service
 
 import (

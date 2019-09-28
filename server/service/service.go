@@ -1,3 +1,5 @@
+// Package service 定义 服务相关定义及函数
+// word试题相关的服务函数定义
 package service
 
 import (
