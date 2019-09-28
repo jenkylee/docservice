@@ -1,5 +1,6 @@
 // Package service 定义 服务相关定义及函数
 // 通用函数相关定义
+
 package service
 
 import (

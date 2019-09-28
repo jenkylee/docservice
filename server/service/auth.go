@@ -1,5 +1,6 @@
 // Package service 定义 服务相关定义及函数
 // 授权相关的服务函数定义
+
 package service
 
 import (
