@@ -6,6 +6,7 @@ import (
 	kitjwt "github.com/go-kit/kit/auth/jwt"
 	kitlog "github.com/go-kit/kit/log"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
+	"github.com/go-kit/kit/ratelimit"
 	kithttp "github.com/go-kit/kit/transport/http"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -13,6 +14,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
+
+	"golang.org/x/time/rate"
 	"yokitalk.com/docservice/server/dbinstance"
 	"yokitalk.com/docservice/server/middlewares"
 	"yokitalk.com/docservice/server/service"
@@ -106,24 +110,39 @@ func main() {
 		kithttp.ServerErrorLogger(logger),
 	}
 
+	// 创建限流器
+	limiter := rate.NewLimiter(rate.Every(time.Second * 1), 1)
+
+	importEndPoint := service.MakeImportEndpoint(ds)
+	// 通过DelayingLimiter中间件， 在EndPoint的外层再包一层限流endPoint
+	importEndPoint = ratelimit.NewDelayingLimiter(limiter)(importEndPoint)
+
 	importHandler := kithttp.NewServer(
-		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, service.CustomClaimsFactory)(service.MakeImportEndpoint(ds)),
+		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, service.CustomClaimsFactory)(importEndPoint),
 		//service.MakeImportEndpoint(ds),
 		service.DecodeImportRequest,
 		service.EncodeResponse,
 		append(jwtOptions, kithttp.ServerBefore(kitjwt.HTTPToContext()))...,
 	)
 
+	exportEndPoint := service.MakeExportEndpoint(ds)
+	// 通过DelayingLimiter中间件， 在EndPoint的外层再包一层限流endPoint
+	exportEndPoint = ratelimit.NewDelayingLimiter(limiter)(exportEndPoint)
+
 	exportHandler := kithttp.NewServer(
-		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, service.CustomClaimsFactory)(service.MakeExportEndpoint(ds)),
+		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, service.CustomClaimsFactory)(exportEndPoint),
 		//service.MakeExportEndpoint(ds),
 		service.DecodeExportRequest,
 		service.EncodeResponse,
 		append(jwtOptions, kithttp.ServerBefore(kitjwt.HTTPToContext()))...,
 	)
 
+	uploadEndPoint := service.MakeUploadEndpint(ds)
+	// 通过DelayingLimiter中间件， 在EndPoint的外层再包一层限流endPoint
+	uploadEndPoint = ratelimit.NewDelayingLimiter(limiter)(uploadEndPoint)
+
 	uploadHandler := kithttp.NewServer(
-		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, service.CustomClaimsFactory)(service.MakeUploadEndpint(ds)),
+		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, service.CustomClaimsFactory)(uploadEndPoint),
 		service.DecodeUploadRequest,
 		service.EncodeResponse,
 		append(jwtOptions, kithttp.ServerBefore(kitjwt.HTTPToContext()))...,
@@ -149,11 +168,11 @@ func main() {
 		"web":    "w_secret",
 	}
 
-	var auth service.AuthService
-	auth = service.NewAuthService(secretKey, clients)
+	var as service.AuthService
+	as = service.NewAuthService(secretKey, clients)
 
-	auth = middlewares.LoggingAuthMiddleware{Logger: logger, Next: auth}
-	auth = middlewares.InstrumentingAuthMiddleware{RequestCount: requestAuthCount, RequestLatency: requestAuthLatency, Next: auth}
+	as = middlewares.LoggingAuthMiddleware{Logger: logger, Next: as}
+	as = middlewares.InstrumentingAuthMiddleware{RequestCount: requestAuthCount, RequestLatency: requestAuthLatency, Next: as}
 
 	options := []kithttp.ServerOption{
 		kithttp.ServerErrorEncoder(service.AuthErrorEncoder),
@@ -161,7 +180,7 @@ func main() {
 	}
 
 	authHandler := kithttp.NewServer(
-		service.MakeAuthEndpoint(auth),
+		service.MakeAuthEndpoint(as),
 		service.DecodeAuthRequest,
 		service.EncodeResponse,
 		options...,

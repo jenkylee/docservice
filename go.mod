@@ -13,4 +13,5 @@ require (
 	github.com/pborman/uuid v1.2.0
 	github.com/prometheus/client_golang v1.1.0
 	github.com/spf13/viper v1.4.0
+	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 )
