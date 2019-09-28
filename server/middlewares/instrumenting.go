@@ -23,7 +23,7 @@ type InstrumentingAuthMiddleware struct {
 
 func (mw InstrumentingAuthMiddleware) Auth(clientID string, clientSecret string) (token string, err error) {
 	defer func(begin time.Time) {
-		lvs := []string{"method", "Auth", "error", fmt.Sprint(err != nil)}
+		lvs := []string{"method", "Auth", "client", clientID, "error", fmt.Sprint(err != nil)}
 		mw.RequestCount.With(lvs...).Add(1)
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
@@ -43,7 +43,7 @@ func (mw InstrumentingMiddleware) Import(ctx context.Context, s string) (output 
 	defer func(begin time.Time) {
 		custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
 		lvs := []string{"method", "import", "client", custCl.ClientID, "error", fmt.Sprint(err != nil)}
-		mw.RequestCount.With(lvs...).Add(2)
+		mw.RequestCount.With(lvs...).Add(1)
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 

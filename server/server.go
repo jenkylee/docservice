@@ -58,7 +58,7 @@ func main() {
 	logger := kitlog.NewLogfmtLogger(os.Stderr)
 	logger = kitlog.With(logger, "ts", kitlog.DefaultTimestampUTC, "caller", kitlog.DefaultCaller)
 
-	fieldKeys := []string{"method", "client","error"}
+	fieldKeys := []string{"method", "client", "error"}
 	requestCount := kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
 		Namespace: "yokitalk",
 		Subsystem: "doc_service",
@@ -148,15 +148,15 @@ func main() {
 		append(jwtOptions, kithttp.ServerBefore(kitjwt.HTTPToContext()))...,
 	)
 
-	authFieldKeys := []string{"method", "error"}
+	authFieldKeys := []string{"method", "client", "error"}
 	requestAuthCount := kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
-		Namespace: "my_group",
+		Namespace: "yokitalk",
 		Subsystem: "auth_service",
 		Name:      "request_count",
 		Help:      "Number of requests received.",
 	}, authFieldKeys)
 	requestAuthLatency := kitprometheus.NewSummaryFrom(stdprometheus.SummaryOpts{
-		Namespace: "my_group",
+		Namespace: "yokitalk",
 		Subsystem: "auth_service",
 		Name:      "request_latency_microseconds",
 		Help:      "Total duration of requests in microseconds.",
