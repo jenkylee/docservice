@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-kit/kit/auth/jwt"
 	"github.com/go-kit/kit/log"
 
 	"yokitalk.com/docservice/server/service"
@@ -17,10 +18,10 @@ type LoggingMiddleware struct {
 
 func (mw LoggingMiddleware) Import(ctx context.Context, s string) (output string, err error) {
 	defer func(begin time.Time) {
-		//custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
+		custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
 		_ = mw.Logger.Log(
 				"method", "import",
-				//"client", custCl.ClientID,
+				"client", custCl.ClientID,
 				"input", s,
 				"output", output,
 				"err", err,
@@ -34,10 +35,10 @@ func (mw LoggingMiddleware) Import(ctx context.Context, s string) (output string
 
 func (mw LoggingMiddleware) Export(ctx context.Context, s string) (output string, err error) {
 	defer func(begin time.Time) {
-		//custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
+		custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
 		_ = mw.Logger.Log(
 			"method", "export",
-			//"client", custCl.ClientID,
+			"client", custCl.ClientID,
 			"input", s,
 			"output", output,
 			"took", time.Since(begin),
@@ -50,10 +51,10 @@ func (mw LoggingMiddleware) Export(ctx context.Context, s string) (output string
 
 func (mw LoggingMiddleware) Upload(ctx context.Context, r *http.Request) (output string, err error) {
 	defer func(begin time.Time) {
-		//custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
+		custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
 		_ = mw.Logger.Log(
 			"method", "upload",
-			//"client", custCl.ClientID,
+			"client", custCl.ClientID,
 			"input", "",
 			"output", output,
 			"took", time.Since(begin),

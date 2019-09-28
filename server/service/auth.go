@@ -28,6 +28,9 @@ type CustomClaims struct {
 	jwt.StandardClaims
 }
 
+func CustomClaimsFactory() jwt.Claims {
+	return &CustomClaims{}
+}
 const expiration  =  14400
 
 func generateToken(signingKey []byte, clientID string) (string, error) {

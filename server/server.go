@@ -54,7 +54,7 @@ func main() {
 	logger := kitlog.NewLogfmtLogger(os.Stderr)
 	logger = kitlog.With(logger, "ts", kitlog.DefaultTimestampUTC, "caller", kitlog.DefaultCaller)
 
-	fieldKeys := []string{"method", "error"}
+	fieldKeys := []string{"method", "client","error"}
 	requestCount := kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
 		Namespace: "yokitalk",
 		Subsystem: "doc_service",
@@ -107,7 +107,7 @@ func main() {
 	}
 
 	importHandler := kithttp.NewServer(
-		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, kitjwt.StandardClaimsFactory)(service.MakeImportEndpoint(ds)),
+		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, service.CustomClaimsFactory)(service.MakeImportEndpoint(ds)),
 		//service.MakeImportEndpoint(ds),
 		service.DecodeImportRequest,
 		service.EncodeResponse,
@@ -115,7 +115,7 @@ func main() {
 	)
 
 	exportHandler := kithttp.NewServer(
-		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, kitjwt.StandardClaimsFactory)(service.MakeExportEndpoint(ds)),
+		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, service.CustomClaimsFactory)(service.MakeExportEndpoint(ds)),
 		//service.MakeExportEndpoint(ds),
 		service.DecodeExportRequest,
 		service.EncodeResponse,
@@ -123,7 +123,7 @@ func main() {
 	)
 
 	uploadHandler := kithttp.NewServer(
-		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, kitjwt.StandardClaimsFactory)(service.MakeUploadEndpint(ds)),
+		kitjwt.NewParser(jwtKeyFunc, jwt.SigningMethodHS256, service.CustomClaimsFactory)(service.MakeUploadEndpint(ds)),
 		service.DecodeUploadRequest,
 		service.EncodeResponse,
 		append(jwtOptions, kithttp.ServerBefore(kitjwt.HTTPToContext()))...,
