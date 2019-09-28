@@ -7,10 +7,3 @@ common:
     port: 3306
     username: root
     password: 123qwe
-
-pandoc:
-  timeout: 300
-  verbose: false
-  trace: false
-  dump-args: false
-  ignore-args: false

@@ -54,9 +54,9 @@ func (mw InstrumentingMiddleware) Import(ctx context.Context, s string) (output 
 func (mw InstrumentingMiddleware) Export(ctx context.Context, s string) (output string, err error) {
 	defer func(begin time.Time) {
 		custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
-		lvs := []string{"method", "export", "client", custCl.ClientID, "error", "false"}
+		lvs := []string{"method", "export", "client", custCl.ClientID, "error", fmt.Sprint(err != nil)}
 		mw.RequestCount.With(lvs...).Add(1)
-		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds()) 	//mw.CountResult.Observe(float64(n))
+		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
 	output, err = mw.Next.Export(ctx, s)
@@ -66,7 +66,7 @@ func (mw InstrumentingMiddleware) Export(ctx context.Context, s string) (output 
 func (mw InstrumentingMiddleware) Upload(ctx context.Context, r *http.Request) (output string, err error) {
 	defer func(begin time.Time) {
 		custCl, _ := ctx.Value(jwt.JWTClaimsContextKey).(*service.CustomClaims)
-		lvs := []string{"method", "export", "client", custCl.ClientID, "error", "false"}
+		lvs := []string{"method", "export", "client", custCl.ClientID, "error", fmt.Sprint(err != nil)}
 		mw.RequestCount.With(lvs...).Add(1)
 		mw.RequestLatency.With(lvs...).Observe(time.Since(begin).Seconds()) 	//mw.CountResult.Observe(float64(n))
 	}(time.Now())
