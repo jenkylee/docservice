@@ -119,7 +119,8 @@ func (doc docService) Export(ctx context.Context, s string) (string, error) {
 	}
 
 	if !doc.isFileExist(tFile) {
-		_, err := execCommand(time.Second * 300, "pandoc",  sFile, "-o", tFile, "--extract-media=" + imageDir, "--table-of-contents")
+		// "--reference-doc="+dir+"moban.docx"
+		_, err := execCommand(time.Second * 300, "pandoc",  sFile, "-o", tFile, "--extract-media=" + imageDir)
 		if err != nil {
 			return "", err
 		}
