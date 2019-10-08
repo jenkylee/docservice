@@ -3,6 +3,7 @@ module yokitalk.com/docservice
 go 1.13
 
 require (
+	baliance.com/gooxml v1.0.1
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/fsnotify/fsnotify v1.4.7
