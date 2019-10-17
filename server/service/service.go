@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 	"yokitalk.com/docservice/server/model"
-	"yokitalk.com/docservice/server/repository"
 )
 
 // 提供DocService 操作
@@ -89,7 +88,7 @@ func (doc docService) Import(ctx context.Context, s string) (string, error){
 		}
 	}
 
-	//doc.osIoutil(tFile, doc.db)
+	doc.osIoutil(tFile, doc.db)
 
 	return tFile, nil
 }
@@ -325,12 +324,13 @@ func (docService) questionParse(tMap map[int]string, tType string, db *gorm.DB) 
 		}
 	}
 
-	question.ID = md5str(question.Content)
-	//fmt.Println(question)
-	questionRepository := repository.NewQuestionRepository(db)
-	err := questionRepository.Create(&question)
+	//question.ID = md5str(question.Content)
+	fmt.Println(question)
+	//questionRepository := repository.NewQuestionRepository(db)
+	//err := questionRepository.Create(&question)
 
-	return err
+	//return err
+	return nil
 }
 
 var ErrEmpty = errors.New("empty strin")
