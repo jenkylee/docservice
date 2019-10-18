@@ -24,16 +24,13 @@ func main() {
 	for i, para := range doc.Paragraphs()  {
 		fmt.Println("----第", i, "段--------")
 		for _, run := range para.Runs() {
-			for _, p := range run.DrawingAnchored(){
-				img, ok := p.GetImage()
-				if ok {
-					fmt.Println(img)
-					fmt.Println("im")
-				}
-			}
 			fmt.Print(run.Text())
 		}
 		fmt.Println()
 	}
 
+
+	for ref := range doc.Images {
+		fmt.Println(ref)
+	}
 }

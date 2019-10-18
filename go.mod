@@ -10,9 +10,12 @@ require (
 	github.com/go-kit/kit v0.9.0
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/google/uuid v1.1.1
+	github.com/guylaor/goword v0.0.0-20171127195350-66a9aa7fe479
 	github.com/jinzhu/gorm v1.9.10
+	github.com/nareix/curl v0.0.0-20151103032410-0c1ac3e488d8
 	github.com/pborman/uuid v1.2.0
 	github.com/prometheus/client_golang v1.1.0
+	github.com/prometheus/common v0.6.0
 	github.com/spf13/viper v1.4.0
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 )

@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 	"yokitalk.com/docservice/server/model"
+	"yokitalk.com/docservice/server/util"
 )
 
 // 提供DocService 操作
@@ -82,13 +83,13 @@ func (doc docService) Import(ctx context.Context, s string) (string, error){
 	}
 
 	if !doc.isFileExist(tFile) {
-		_, err := execCommand(time.Second * 300, "pandoc", sFile, "-o", tFile, "--extract-media=" + imageDir)
+		_, err := util.ExecCommand(time.Second * 300, "pandoc", sFile, "-o", tFile, "--extract-media=" + imageDir)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	doc.osIoutil(tFile, doc.db)
+	//doc.osIoutil(tFile, doc.db)
 
 	return tFile, nil
 }
@@ -119,7 +120,7 @@ func (doc docService) Export(ctx context.Context, s string) (string, error) {
 
 	if !doc.isFileExist(tFile) {
 		// "--reference-doc="+dir+"moban.docx"
-		_, err := execCommand(time.Second * 300, "pandoc",  sFile, "-o", tFile, "--extract-media=" + imageDir)
+		_, err := util.ExecCommand(time.Second * 300, "pandoc",  sFile, "-o", tFile, "--extract-media=" + imageDir)
 		if err != nil {
 			return "", err
 		}
@@ -163,7 +164,7 @@ func (doc docService) Upload(ctx context.Context, r *http.Request) (string, erro
 	if fileExt != ".docx" {
 		return "INVALID_FILE_TYPE", nil
 	}
-	newFilName := randToken(12)
+	newFilName := util.RandToken(12)
 
 	newPath := filepath.Join(uploadPath, newFilName+fileExt)
 	fmt.Printf("FileType: %s, File: %s\n", fileExt, newPath)
@@ -188,6 +189,11 @@ func (docService) isFileExist(f string) bool {
 	_, err := os.Stat(f)
 
 	return err == nil || os.IsExist(err)
+}
+
+func (doc docService) handleImagToLatex(latexFile string) error {
+
+	return  nil
 }
 
 func (doc docService) osIoutil(name string, db *gorm.DB) {
@@ -269,8 +275,8 @@ func (docService) questionParse(tMap map[int]string, tType string, db *gorm.DB) 
 
 		if idx := strings.Index(lineStr, tType); idx > -1 {
 			isContent = true
-			question.Content = lineStr[idx + len(tType): len(lineStr) -1]
-			fmt.Println("Content", question.Content)
+			question.Title = lineStr[idx + len(tType): len(lineStr) -1]
+			fmt.Println("Title", question.Title)
 			continue
 		}
 
@@ -279,12 +285,6 @@ func (docService) questionParse(tMap map[int]string, tType string, db *gorm.DB) 
 			strArr := strings.Split(tmpStr, string("{[}分数{]}"))
 			question.Answer = strArr[0]
 			tmpStr = strArr[1]
-			if strings.Index(tmpStr, string("{[}所有空无序{]}")) > -1 {
-				tmpStr = strings.Replace(tmpStr, string("{[}所有空无序{]}"), "", 1)
-				question.BlankDisorder = 1;
-			} else {
-				question.BlankDisorder = 0;
-			}
 
 			strArr = strings.Split(tmpStr, string("{[}分类{]}"))
 			reg := regexp.MustCompile(`([0-9])`)
@@ -300,12 +300,12 @@ func (docService) questionParse(tMap map[int]string, tType string, db *gorm.DB) 
 			if strings.Index(tmpStr, string("{[}标签{]}")) > -1 {
 				strArr = strings.Split(tmpStr, string("{[}标签{]}"))
 				result = reg.FindAllStringSubmatch(strArr[0],-1) //匹配
-				question.Class = result[0][1];
+				question.Subject = result[0][1];
 				result = reg.FindAllStringSubmatch(strArr[1],-1) //匹配
-				question.Tag = result[0][1];
+				question.Difficulty = result[0][1];
 			} else {
 				result := reg.FindAllStringSubmatch(tmpStr,-1) //匹配
-				question.Class = result[0][1];
+				question.Subject = result[0][1];
 			}
 			isContent = false
 			continue
@@ -317,14 +317,14 @@ func (docService) questionParse(tMap map[int]string, tType string, db *gorm.DB) 
 			continue
 		}
 		if isContent {
-			question.Content += lineStr
+			question.Title += lineStr
 		}
 		if isAnalysis {
 			question.Analysis += lineStr
 		}
 	}
 
-	//question.ID = md5str(question.Content)
+	//question.ID = util.Md5str(question.Content)
 	fmt.Println(question)
 	//questionRepository := repository.NewQuestionRepository(db)
 	//err := questionRepository.Create(&question)
