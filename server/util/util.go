@@ -29,7 +29,7 @@ func ExecCommand(timeout time.Duration, name string, args ...string) (result []b
 		Setpgid: true,
 		Pgid:    0,
 	}
-
+    log.Println(cmd.String())
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return
@@ -105,8 +105,13 @@ func RandToken(len int) string {
 	return fmt.Sprintf("%x", b)
 }
 
+// 外部调研
+func ImageToLatex(image string) (string, error) {
+	return mathpix(image)
+}
+
 // 调研mathpix将图片转为latex函数
-func Mathpix(image string) (string, error) {
+func mathpix(image string) (string, error) {
 	url := "https://api.mathpix.com/v3/latex"
 	imageBytes, err := ioutil.ReadFile(image)
 	if err != nil {

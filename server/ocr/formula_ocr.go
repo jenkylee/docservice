@@ -1,14 +1,5 @@
 package ocr
 
-import (
-	"encoding/base64"
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
-	"strings"
-	"log"
-)
-
 type Detecion struct {
 	DetecionMap
 	DetecionList
