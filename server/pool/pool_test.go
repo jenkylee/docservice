@@ -1,36 +1,34 @@
-package main
+package pool
 
 import (
-	"io"
-	"log"
-	"time"
-
-	_ "github.com/go-sql-driver/mysql"
+	"fmt"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
-	pool2 "yokitalk.com/docservice/server/pool"
+	"io"
+	"testing"
+	"time"
 )
 
-func  main() {
-	pool, err := pool2.NewCommonPool(10, 100, time.Second*300, poolMysqlFactory)
+func TestNewCommonPool(t *testing.T) {
+	pool, err := NewCommonPool(10, 100, time.Second*300, poolMysqlFactory)
 	if err != nil {
-		log.Fatal("数据库连接错误")
+		t.Fatal("数据库连接错误")
 	}
 	db, err := pool.Acquire();
 	if err != nil {
-		log.Fatal("未获取到资源")
+		t.Fatal("未获取到资源")
 	}
 
 	err = pool.Release(db)
 	if err != nil {
-		log.Fatal("释放资源失败")
+		t.Fatal("释放资源失败")
 	}
 	err = pool.Shutdown()
 	if err != nil {
-		log.Fatal("关闭资源池失败")
+		t.Fatal("关闭资源池失败")
 	}
 
-	log.Println("执行完成")
+	fmt.Println("执行完成")
 }
 
 // mysql pool factory

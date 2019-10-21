@@ -191,66 +191,71 @@ func (docService) isFileExist(f string) bool {
 	return err == nil || os.IsExist(err)
 }
 
+func (doc docService) handleWmfToPng(imgDir, wordFile, latexFile string) error {
+
+	return nil
+}
+
 func (doc docService) handleImagToLatex(latexFile string) error {
 
 	return  nil
 }
 
-func (doc docService) osIoutil(name string, db *gorm.DB) {
-	if fileObj, err := os.Open(name); err == nil {
-		defer fileObj.Close()
+func (doc docService) osIoutil(name string, db *gorm.DB) error {
+	fileObj, err := os.Open(name);
+	if  err == nil {
+		return err
+	}
+	defer fileObj.Close()
 
-		if err != nil {
-			panic(err)
-		}
-
-		rd := bufio.NewReader(fileObj)
-		var questionMap map[int]string
-		questionMap = make(map[int]string)
-		isTestStart := false
-		isTestEnd := false
-		i := 0
-		t_l := 0
-		tType := ""
-		oType := ""
-		for{
-			line, err := rd.ReadString('\n')
-			if err != nil || io.EOF == err {
-				isTestStart = false
-				isTestEnd = true
-				doc.questionParse(questionMap, tType, db)
-				break
-			} else {
-				for k, v := range testingType {
-					if strings.Index(line, v) > -1 {
-						isTestStart = true
-						if i > 0 {
-							isTestEnd = true
-						}
-						i++
-						tType = k
-						if oType == "" {
-							oType = tType
-						}
-						break
+	rd := bufio.NewReader(fileObj)
+	var questionMap map[int]string
+	questionMap = make(map[int]string)
+	isTestStart := false
+	isTestEnd := false
+	i := 0
+	t_l := 0
+	tType := ""
+	oType := ""
+	for{
+		line, err := rd.ReadString('\n')
+		if err != nil || io.EOF == err {
+			isTestStart = false
+			isTestEnd = true
+			doc.questionParse(questionMap, tType, db)
+			break
+		} else {
+			for k, v := range testingType {
+				if strings.Index(line, v) > -1 {
+					isTestStart = true
+					if i > 0 {
+						isTestEnd = true
 					}
+					i++
+					tType = k
+					if oType == "" {
+						oType = tType
+					}
+					break
 				}
+			}
 
-				if isTestEnd {
-					doc.questionParse(questionMap, oType, db)
-					oType = tType
-					isTestEnd = false
-					questionMap = make(map[int]string)
-					t_l = 0
-				}
+			if isTestEnd {
+				doc.questionParse(questionMap, oType, db)
+				oType = tType
+				isTestEnd = false
+				questionMap = make(map[int]string)
+				t_l = 0
+			}
 
-				if isTestStart {
-					questionMap[t_l] = line
-					t_l++
-				}
+			if isTestStart {
+				questionMap[t_l] = line
+				t_l++
 			}
 		}
 	}
+
+	return nil
 }
 
 func (docService) questionParse(tMap map[int]string, tType string, db *gorm.DB) error {
